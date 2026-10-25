@@ -1,0 +1,73 @@
+# Godpack landing page — recreation
+
+A from-scratch recreation of the godpack.gg landing page: same layout, type,
+colours, breakpoints, animations and interactions. The code and artwork are
+original (see "What's original" below).
+
+## Run it
+
+```bash
+npm install
+npm start
+```
+
+Then open http://localhost:4173/.
+
+Formatting is handled by Prettier (`.prettierrc.json`):
+
+```bash
+npm run format        # rewrite files
+npm run format:check  # verify only
+```
+
+## What's here
+
+| Path                  | What it does                                                                                                                           |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `index.html`          | Page markup: header, hero carousel, copy, card ribbon, FAQ, footer                                                                     |
+| `css/site.css`        | All styles. Mobile first; 768px tablet, 1200px desktop, 1536 / 1728px wider ribbon cards                                               |
+| `js/orbit.js`         | Pack carousel: a spring-driven turntable that turns every 2.6 s, supports drag and flick, shows a tap pulse, and opens the demo on tap |
+| `js/ribbon.js`        | Card ribbon: a seamless marquee that pauses on hover and supports mouse/touch drag with inertia, horizontal wheel and arrow keys       |
+| `js/footer.js`        | Desktop footer wordmark on a canvas: letters rise on first view, a foil light follows the cursor, sparkles rise from the slit          |
+| `js/demo.js`          | Pack-opening demo, loaded on first tap: tear the pack, token spin and tier recolour, slab reveal with streaks, arcs, burst and flip    |
+| `tools/art/`          | Generators for all the artwork (foil packs, graded slabs, logo, icons, link preview)                                                   |
+| `tools/render-art.js` | Renders the generators to `assets/` (`npm run art`)                                                                                    |
+| `tools/serve.js`      | Static preview server                                                                                                                  |
+
+Every animation respects `prefers-reduced-motion`.
+
+## What's original
+
+- **Code.** Everything is written from scratch. The original site's scripts and stylesheet were used only to observe layout values and timing.
+- **Artwork.** The booster packs, logo mark, card back and all 13 graded cards are generated procedurally by `tools/art/`. The cards show landscape art with invented names and set labels. There are no Pokémon characters, real card scans, grading-company logos or the Godpack logo.
+- **Font.** Hanken Grotesk, self-hosted under the SIL Open Font License (`assets/fonts/OFL.txt`).
+
+## Swapping in your own assets
+
+Images are referenced by path, so licensed art can replace the generated files
+at the same sizes:
+
+- packs: `assets/packs/{arena,master,starter,trainer}-{240,480,720,1060}.webp` (1060 × 1484, transparent)
+- ribbon cards: `assets/slabs/<id>-400.webp`; the demo uses `<id>-600.webp` (600 × 1005)
+- logo: `assets/logo.png` (447 × 159, drawn into a 149 × 53 box)
+
+To regenerate the art after editing a generator: `npm run art` (or `node tools/render-art.js packs|slabs|extras`).
+
+## Deploy (Vercel)
+
+It's a static site with no build step. `.vercelignore` uploads only `index.html`,
+`css/`, `js/`, `assets/` and `vercel.json` (cache and security headers).
+
+```bash
+vercel deploy
+```
+
+Deployments are kept **private**: the project uses Vercel Authentication, so only
+signed-in members of the Vercel account can open them, and pages send
+`X-Robots-Tag: noindex`. Don't promote it to a public production domain.
+
+## Note
+
+The page keeps Godpack's name, copy and links because it recreates their site.
+Use it for local study, and keep any deployment private rather than presenting it
+publicly as Godpack's.

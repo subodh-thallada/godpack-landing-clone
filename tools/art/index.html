@@ -1,0 +1,47 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Art generator</title>
+    <style>
+      @font-face {
+        font-family: 'Hanken Grotesk';
+        src: url('../../assets/fonts/hanken-grotesk-latin.woff2') format('woff2');
+        font-weight: 400 800;
+      }
+      body {
+        margin: 0;
+        background: #0b0a0e;
+        color: #fff;
+        font-family: 'Hanken Grotesk', sans-serif;
+      }
+    </style>
+  </head>
+  <body>
+    <script src="lib.js"></script>
+    <script src="packs.js"></script>
+    <script src="cards.js"></script>
+    <script src="extras.js"></script>
+    <script>
+      // tools/render-art.js calls these and writes the PNG data URLs to disk.
+      window.ready = Promise.all([
+        document.fonts.load('700 100px "Hanken Grotesk"'),
+        document.fonts.load('600 100px "Hanken Grotesk"'),
+        document.fonts.load('500 100px "Hanken Grotesk"'),
+        document.fonts.load('800 100px "Hanken Grotesk"'),
+      ]);
+      window.exportPack = function (type) {
+        return window.renderPack(type).toDataURL('image/png');
+      };
+      window.exportSlab = function (i) {
+        return window.renderSlab(i).toDataURL('image/png');
+      };
+      window.exportSlabBack = function () {
+        return window.renderSlabBack().toDataURL('image/png');
+      };
+      window.exportExtra = function (name) {
+        return window.renderExtra(name).toDataURL('image/png');
+      };
+    </script>
+  </body>
+</html>

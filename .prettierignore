@@ -1,0 +1,6 @@
+node_modules/
+assets/
+package-lock.json
+.claude/
+.impeccable/
+.vercel/

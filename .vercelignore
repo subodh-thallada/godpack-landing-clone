@@ -1,0 +1,12 @@
+# Only the static site is deployed: index.html, css/, js/, assets/, vercel.json.
+node_modules
+tools
+package.json
+package-lock.json
+README.md
+.prettierrc.json
+.prettierignore
+.editorconfig
+.gitignore
+.claude
+.impeccable

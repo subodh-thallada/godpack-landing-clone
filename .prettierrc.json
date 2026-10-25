@@ -1,0 +1,8 @@
+{
+  "printWidth": 120,
+  "singleQuote": true,
+  "trailingComma": "all",
+  "bracketSameLine": false,
+  "htmlWhitespaceSensitivity": "css",
+  "overrides": [{ "files": "*.html", "options": { "printWidth": 160 } }]
+}

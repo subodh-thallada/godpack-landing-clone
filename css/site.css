@@ -1,0 +1,1016 @@
+/* ==========================================================================
+   Godpack landing — stylesheet
+   Mobile first. Tablet at 768px, desktop at 1200px, wider ribbon cards at
+   1536px and 1728px.
+   ========================================================================== */
+
+@font-face {
+  font-family: 'Hanken Grotesk';
+  src: url('../assets/fonts/hanken-grotesk-latin.woff2') format('woff2');
+  font-weight: 400 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ---------- Tokens ---------- */
+
+:root {
+  color-scheme: dark;
+
+  --bg: #0b0a0e;
+  --surface: #14121a;
+  --surface-hover: #1c1925;
+  --ink: #f4f2f8;
+  --ink-2: #e4e1ec;
+  --ink-3: #a5a1b0;
+  --ink-4: #8e8a9a;
+  --dot: #6f6b7b;
+  --violet: #b8a0ff;
+  --rule: rgb(255 255 255 / 0.08);
+  --stroke: rgb(255 255 255 / 0.18);
+
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Rendered width of the front pack; every carousel measurement derives from it. */
+  --pack: clamp(176px, 56.4vw, 220px);
+  --side: max(20px, env(safe-area-inset-left));
+  --side-r: max(20px, env(safe-area-inset-right));
+}
+
+/* ---------- Base ---------- */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--bg);
+}
+
+body {
+  margin: 0;
+  color: var(--ink);
+  font:
+    1rem/normal 'Hanken Grotesk',
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  color: inherit;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
+
+.shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100svh;
+  overflow: hidden;
+}
+
+/* ---------- Header ---------- */
+
+.topbar {
+  position: relative;
+  z-index: 2;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 64px;
+  padding-inline: var(--side) var(--side-r);
+}
+
+.brand {
+  flex: none;
+  display: block;
+  width: 124px;
+  height: 44px;
+}
+
+.brand img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.backer {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 44px;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+/* Hairline divider between the logo and "Backed by". */
+.backer::before {
+  content: '';
+  width: 1px;
+  height: 20px;
+  margin-right: 5px;
+  background: var(--stroke);
+}
+
+.backer svg {
+  flex: none;
+  display: block;
+}
+
+.backer-label {
+  color: var(--ink-3);
+  font-weight: 500;
+  transition: color 160ms;
+}
+
+.pill-link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  margin-left: auto;
+  padding-inline: 16px;
+  border: 1px solid var(--stroke);
+  border-radius: 999px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+  touch-action: manipulation;
+  transition: border-color 160ms;
+}
+
+.pill-link::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+} /* bigger touch target */
+
+/* ---------- Hero ---------- */
+
+.hero {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Carousel
+   Each .booster is placed by five custom properties: --x, --y (offset),
+   --s (scale), --ry (yaw) and --dim (brightness). The values below are the
+   still pose used before js/orbit.js takes over; the script then rewrites
+   them every frame. --cam is the perspective distance, which grows with the
+   pack on desktop so the side packs keep the same keystone. */
+.carousel {
+  --cam: 700px;
+  position: relative;
+  height: calc(var(--pack) * 1.4 + 40px);
+  margin-top: 8px;
+  cursor: pointer;
+  touch-action: pan-y;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.booster {
+  --x: 0px;
+  --y: 0px;
+  --s: 1;
+  --ry: 0deg;
+  --dim: 1;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 1;
+  width: var(--pack);
+  height: calc(var(--pack) * 1.4);
+  margin: calc(var(--pack) * -0.7) 0 0 calc(var(--pack) * -0.5);
+  transform: translate3d(var(--x), var(--y), 0) scale(var(--s)) perspective(var(--cam)) rotateY(var(--ry));
+  filter: brightness(var(--dim));
+  will-change: transform;
+  -webkit-user-drag: none;
+}
+
+.booster:nth-of-type(1) {
+  z-index: 201;
+}
+
+.booster:nth-of-type(2),
+.booster:nth-of-type(4) {
+  --y: calc(var(--pack) * -0.064);
+  --s: 0.74;
+  --dim: 0.48;
+  z-index: 100;
+}
+
+.booster:nth-of-type(2) {
+  --x: calc(var(--pack) * 0.618);
+  --ry: 34deg;
+}
+.booster:nth-of-type(4) {
+  --x: calc(var(--pack) * -0.618);
+  --ry: -34deg;
+}
+
+.booster:nth-of-type(3) {
+  --y: calc(var(--pack) * -0.127);
+  --s: 0.48;
+  --dim: 0.3;
+}
+
+/* Coloured glow behind each pack; opacity follows the pack's depth. */
+.halo {
+  --d: calc(var(--pack) * 2.36);
+  position: absolute;
+  top: calc(50% - var(--d) / 2);
+  left: calc(50% - var(--d) / 2);
+  width: var(--d);
+  height: var(--d);
+  border-radius: 50%;
+  opacity: 0;
+  pointer-events: none;
+  will-change: opacity;
+}
+
+.halo:nth-child(1) {
+  background: radial-gradient(closest-side, #7a2cf0, transparent);
+  opacity: 0.3;
+}
+.halo:nth-child(2) {
+  background: radial-gradient(closest-side, #3f52ff, transparent);
+  opacity: 0.065;
+}
+.halo:nth-child(3) {
+  background: radial-gradient(closest-side, #b48cff, transparent);
+}
+.halo:nth-child(4) {
+  background: radial-gradient(closest-side, #c8c8d8, transparent);
+  opacity: 0.065;
+}
+
+/* Tap hint: rings animated by js/orbit.js with the Web Animations API. */
+.pulse {
+  position: absolute;
+  top: 56%;
+  left: 50%;
+  z-index: 300;
+  pointer-events: none;
+}
+
+.pulse span {
+  --r: calc(var(--pack) * 0.32);
+  position: absolute;
+  top: calc(var(--r) / -2);
+  left: calc(var(--r) / -2);
+  width: var(--r);
+  height: var(--r);
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.12);
+  opacity: 0;
+}
+
+/* Keyboard entry to the demo; only visible while focused. */
+.demo-trigger {
+  position: absolute;
+  align-self: center;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  background: none;
+  color: var(--ink-4);
+  font: inherit;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+  cursor: pointer;
+  clip-path: inset(50%);
+  touch-action: manipulation;
+}
+
+.demo-trigger:focus-visible {
+  position: relative;
+  width: auto;
+  height: auto;
+  min-height: 44px;
+  padding-inline: 16px;
+  clip-path: none;
+}
+
+/* Copy column */
+.copy {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 24px 28px;
+  text-align: center;
+}
+
+h1 {
+  margin: 6px 0 0;
+  font-size: clamp(2.5rem, 12.8vw, 3.125rem);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.045em;
+}
+
+.primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  margin-top: 24px;
+  padding-inline: 32px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--bg);
+  font-size: 1rem;
+  font-weight: 600;
+  text-decoration: none;
+  touch-action: manipulation;
+  transition: background-color 160ms;
+}
+
+.primary:active {
+  background: #dcd8e6;
+}
+
+.perks {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 22px 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--ink-2);
+  font-size: clamp(0.9375rem, 4.36vw, 1.0625rem);
+  font-weight: 500;
+  line-height: 1.625rem;
+  white-space: nowrap;
+}
+
+.perks-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.sep,
+.perks-row + .perks-row::before {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--dot);
+}
+
+.shine {
+  color: var(--violet);
+  font-weight: 700;
+}
+
+/* The accent phrase gets a white glint that crosses it, then waits.
+   Falls back to the flat accent without text clipping or with reduced motion. */
+@media (prefers-reduced-motion: no-preference) {
+  @supports (background-clip: text) or (-webkit-background-clip: text) {
+    .shine {
+      color: transparent;
+      background: linear-gradient(110deg, var(--violet) 44%, #fff 50%, var(--violet) 56%) 100% 0 / 250% 100%;
+      -webkit-background-clip: text;
+      background-clip: text;
+      animation: shine-sweep 4s linear infinite;
+    }
+  }
+}
+
+@keyframes shine-sweep {
+  0%,
+  10% {
+    background-position: 100% 0;
+  }
+  50%,
+  100% {
+    background-position: 0 0;
+  }
+}
+
+/* Ribbon of graded cards. js/ribbon.js moves the track and handles drag,
+   wheel and keys; without script it is a still row. */
+.strip {
+  --slab: 90px;
+  --gap: 10px;
+  --fade: 13%;
+  align-self: stretch;
+  min-width: 0;
+  margin: 26px -24px 0;
+  overflow: hidden;
+  outline: none;
+  touch-action: pan-y;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 var(--fade), #000 calc(100% - var(--fade)), transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 var(--fade), #000 calc(100% - var(--fade)), transparent);
+}
+
+.strip:focus-visible {
+  outline: 2px solid var(--violet);
+  outline-offset: -2px;
+}
+
+.strip-track {
+  display: flex;
+  gap: var(--gap);
+  width: max-content;
+  padding: 4px calc(var(--gap) / 2) 6px;
+  will-change: transform;
+}
+
+.strip-track > a {
+  flex: none;
+  display: block;
+  border-radius: 5px;
+  touch-action: pan-y;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.strip-track > a:focus-visible {
+  outline: 2px solid var(--violet);
+  outline-offset: 2px;
+}
+
+.strip-track img {
+  display: block;
+  width: var(--slab);
+  max-width: none;
+  height: calc(var(--slab) * 1.678);
+  border-radius: 5px;
+  -webkit-user-drag: none;
+}
+
+.strip.is-dragging,
+.strip.is-dragging a {
+  cursor: grabbing;
+}
+
+/* Focus rings for the header and hero controls. */
+:is(.brand, .backer, .pill-link, .primary, .demo-trigger):focus-visible {
+  outline: 2px solid var(--violet);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+:is(.pill-link, .primary):focus-visible {
+  border-radius: 999px;
+}
+
+/* ---------- FAQ ---------- */
+
+.faq {
+  width: 100%;
+  max-width: 680px;
+  margin-inline: auto;
+  padding: 40px max(24px, env(safe-area-inset-right)) 48px max(24px, env(safe-area-inset-left));
+}
+
+.faq h2 {
+  margin: 0 0 8px;
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+.faq details {
+  border-bottom: 1px solid var(--rule);
+}
+
+.faq summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 52px;
+  padding: 12px 0;
+  font-weight: 500;
+  list-style: none;
+  cursor: pointer;
+}
+
+.faq summary::-webkit-details-marker {
+  display: none;
+}
+
+.faq summary::after {
+  content: '+';
+  flex: none;
+  color: var(--ink-3);
+  font-size: 1.25rem;
+  font-weight: 400;
+  line-height: 1;
+  transition: color 160ms;
+}
+
+.faq details[open] > summary::after {
+  content: '\2212';
+}
+
+.faq summary:focus-visible {
+  outline: 2px solid var(--violet);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+.faq p {
+  margin: 0 0 16px;
+  color: var(--ink-2);
+  line-height: 1.6;
+}
+
+/* ---------- Footer ---------- */
+
+.site-footer {
+  margin: auto max(24px, env(safe-area-inset-right)) 0 max(24px, env(safe-area-inset-left));
+  padding: 28px 0 max(32px, env(safe-area-inset-bottom));
+  border-top: 1px solid var(--rule);
+  color: var(--ink-3);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+/* The canvas wordmark is desktop-only (js/footer.js starts at 1200px). */
+.wordmark-art {
+  display: none;
+}
+
+.footer-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px 20px;
+}
+
+.footer-lead {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px 24px;
+}
+
+.footer-address {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+}
+
+.footer-social {
+  display: flex;
+  gap: 10px;
+}
+
+.footer-social a {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid rgb(255 255 255 / 0.12);
+  border-radius: 50%;
+  background: var(--surface);
+  color: #d6d2e0;
+  transition:
+    color 160ms,
+    border-color 160ms,
+    background-color 160ms,
+    transform 160ms;
+}
+
+.footer-social svg {
+  display: block;
+}
+
+.footer-col h3 {
+  margin: 0 0 2px;
+  color: var(--ink);
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+}
+
+.footer-col ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.footer-col a {
+  display: inline-block;
+  padding: 12px 0;
+  color: var(--ink-3);
+  line-height: 1.25rem;
+  text-decoration: none;
+  text-wrap: pretty;
+  transition:
+    color 160ms,
+    transform 200ms var(--ease-out-expo);
+}
+
+.footer-price {
+  margin-left: 6px;
+  color: var(--ink-4);
+}
+
+.footer-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid var(--rule);
+  color: var(--ink-4);
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+}
+
+.footer-bar p {
+  margin: 0;
+}
+
+.site-footer a:focus-visible {
+  outline: 2px solid var(--violet);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+/* ---------- Demo overlay host (filled by js/demo.js) ---------- */
+
+.demo-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  font-family: inherit;
+}
+
+.demo-layer[hidden] {
+  display: none;
+}
+
+/* ==========================================================================
+   Breakpoints
+   ========================================================================== */
+
+@media (max-width: 359px) {
+  .topbar {
+    gap: 8px;
+  }
+  .backer-label {
+    display: none;
+  }
+}
+
+/* ---------- Tablet ---------- */
+
+@media (min-width: 768px) {
+  :root {
+    --pack: 300px;
+    --side: max(5%, env(safe-area-inset-left));
+    --side-r: max(5%, env(safe-area-inset-right));
+  }
+
+  .topbar {
+    gap: 16px;
+    height: 84px;
+  }
+  .backer {
+    font-size: 0.9375rem;
+  }
+
+  .carousel {
+    margin-top: 0;
+  }
+  .copy {
+    padding: 22px 24px 56px;
+  }
+
+  h1 {
+    margin-top: 0;
+    font-size: 4.75rem;
+  }
+  h1 br {
+    display: none;
+  }
+
+  .primary {
+    min-height: 56px;
+    margin-top: 30px;
+    padding-inline: 38px;
+    font-size: 1.0625rem;
+  }
+
+  .perks {
+    flex-direction: row;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 28px;
+    font-size: 1.1875rem;
+  }
+
+  .perks-row {
+    gap: 12px;
+  }
+  .perks-row + .perks-row::before {
+    content: '';
+  }
+
+  .strip {
+    align-self: center;
+    width: min(1100px, 100%);
+    margin: 40px 0 0;
+  }
+
+  .site-footer {
+    margin-inline: var(--side) var(--side-r);
+    padding-top: 32px;
+  }
+  .footer-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 32px 28px;
+  }
+
+  .footer-bar {
+    flex-flow: row wrap;
+    justify-content: space-between;
+    gap: 12px 32px;
+  }
+}
+
+/* ---------- Desktop ----------
+   The hero becomes a grid: copy left, carousel right, ribbon across the
+   bottom. Empty first and fifth rows share the leftover height so the copy
+   sits centred against the carousel. The pack size follows both the
+   window's width and height so the first screen holds header, carousel and
+   ribbon. --gutter caps the content at 1560px. */
+
+@media (min-width: 1200px) {
+  :root {
+    --pack: clamp(300px, min(26vw, 38vh), 460px);
+    --gutter: max(5vw, calc(50vw - 780px));
+    --side: max(var(--gutter), env(safe-area-inset-left));
+    --side-r: max(var(--gutter), env(safe-area-inset-right));
+  }
+
+  .topbar {
+    gap: 18px;
+  }
+  .brand {
+    width: 149px;
+    height: 53px;
+  }
+  .backer {
+    font-size: 1rem;
+  }
+  .pill-link {
+    min-height: 40px;
+    padding-inline: 20px;
+    font-size: 0.9375rem;
+  }
+
+  .hero {
+    flex: 1 0 auto;
+    display: grid;
+    grid-template-columns: var(--gutter) minmax(0, 1fr) minmax(0, 1.12fr) var(--gutter);
+    grid-template-rows: 1fr auto auto auto 1fr auto;
+    /* At least a full screen under the header, even with the FAQ below. */
+    min-height: calc(100vh - 84px);
+    min-height: calc(100svh - 84px);
+  }
+
+  .copy {
+    display: contents;
+  }
+
+  .carousel {
+    --cam: calc(var(--pack) * 7 / 3);
+    z-index: 0;
+    grid-area: 1 / 3 / 6 / 4;
+    align-self: center;
+  }
+
+  h1,
+  .primary,
+  .perks,
+  .strip {
+    position: relative;
+    z-index: 1;
+  }
+
+  h1 {
+    grid-area: 2 / 2;
+    margin: 0;
+    text-align: left;
+    font-size: clamp(4.5rem, 6vw, 6.75rem);
+  }
+
+  h1 br {
+    display: inline;
+  }
+
+  .primary {
+    grid-area: 3 / 2;
+    justify-self: start;
+    min-height: 60px;
+    margin-top: 36px;
+    padding-inline: 44px;
+    font-size: 1.125rem;
+  }
+
+  .perks {
+    grid-area: 4 / 2;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    margin-top: 32px;
+    font-size: 1.25rem;
+    line-height: 1.75rem;
+  }
+
+  .perks-row {
+    justify-content: flex-start;
+  }
+  .perks-row + .perks-row::before {
+    content: none;
+  }
+
+  .demo-trigger:focus-visible {
+    z-index: 1;
+    grid-area: 5 / 3;
+    align-self: end;
+    justify-self: center;
+    margin-bottom: -44px;
+  }
+
+  .strip {
+    --slab: 132px;
+    --gap: 16px;
+    --fade: 6%;
+    grid-area: 6 / 1 / 7 / -1;
+    justify-self: center;
+    width: 100%;
+    max-width: 2880px;
+    margin: 44px 0 48px;
+  }
+
+  .strip-track {
+    padding-bottom: 8px;
+  }
+  .strip-track img {
+    border-radius: 7px;
+  }
+
+  .site-footer {
+    padding-top: 72px;
+    border-top: 0;
+  }
+
+  .wordmark-art {
+    position: relative;
+    display: block;
+    width: 100%;
+    aspect-ratio: 1202 / 304;
+  }
+
+  .wordmark-art canvas {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .footer-grid {
+    grid-template-columns: minmax(200px, 1.1fr) repeat(5, minmax(0, 1fr));
+    gap: 40px 28px;
+    margin-top: 8px;
+  }
+
+  .footer-lead {
+    grid-column: auto;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 24px;
+  }
+
+  .footer-col h3 {
+    margin-bottom: 4px;
+  }
+  .footer-col a {
+    padding-block: 10px;
+  }
+
+  .footer-bar {
+    margin-top: 56px;
+    padding-top: 24px;
+    font-size: 0.75rem;
+    line-height: 1.125rem;
+  }
+
+  /* Footer entrance: js/footer.js sets data-entrance to "waiting", then to
+     "played" on first view; the columns then fade up one after another. */
+  .site-footer[data-entrance='waiting'] :is(.footer-grid > *, .footer-bar) {
+    opacity: 0;
+  }
+
+  .site-footer[data-entrance='played'] :is(.footer-grid > *, .footer-bar) {
+    animation: footer-enter 800ms var(--ease-out-expo) both;
+    animation-delay: calc(550ms + var(--i, 0) * 70ms);
+  }
+
+  .footer-grid > :nth-child(2) {
+    --i: 1;
+  }
+  .footer-grid > :nth-child(3) {
+    --i: 2;
+  }
+  .footer-grid > :nth-child(4) {
+    --i: 3;
+  }
+  .footer-grid > :nth-child(5) {
+    --i: 4;
+  }
+  .footer-grid > :nth-child(6) {
+    --i: 5;
+  }
+  .footer-bar {
+    --i: 6.43;
+  }
+}
+
+@media (min-width: 1536px) {
+  .strip {
+    --slab: 144px;
+  }
+}
+@media (min-width: 1728px) {
+  .strip {
+    --slab: 152px;
+  }
+}
+
+@keyframes footer-enter {
+  from {
+    opacity: 0;
+    filter: blur(6px);
+    transform: translateY(10px);
+  }
+}
+
+/* ---------- Pointer & motion preferences ---------- */
+
+@media (hover: hover) and (pointer: fine) {
+  .primary:hover {
+    background: #fff;
+  }
+  .pill-link:hover {
+    border-color: rgb(255 255 255 / 0.4);
+  }
+  .backer:hover .backer-label,
+  .demo-trigger:hover {
+    color: var(--ink);
+  }
+  .faq summary:hover::after {
+    color: var(--ink);
+  }
+  .footer-col a:hover {
+    color: var(--ink);
+    transform: translateX(2px);
+  }
+
+  .footer-social a:hover {
+    border-color: rgb(255 255 255 / 0.2);
+    background: var(--surface-hover);
+    color: #fff;
+    transform: translateY(-1px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .footer-col a,
+  .footer-social a {
+    transition: none;
+  }
+}

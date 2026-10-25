@@ -1,0 +1,20 @@
+{
+  "name": "godpack-landing-clone",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Recreation of the godpack.gg landing page with original artwork.",
+  "scripts": {
+    "start": "node tools/serve.js",
+    "art": "node tools/render-art.js",
+    "shots": "node tools/compare.js",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "pixelmatch": "^5.3.0",
+    "playwright": "1.64.1",
+    "pngjs": "^7.0.0",
+    "prettier": "^3.9.10",
+    "sharp": "^0.34.0"
+  }
+}

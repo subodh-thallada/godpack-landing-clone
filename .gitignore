@@ -1,0 +1,15 @@
+# Dependencies
+node_modules/
+
+# Local tooling and editor state
+.claude/
+.impeccable/
+.vercel/
+.vscode/
+.idea/
+
+# OS / logs
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*
