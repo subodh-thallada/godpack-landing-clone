@@ -6,10 +6,10 @@
   "rewrites": [
     {
       "source": "/(packs|battles|vault|feed|rewards|ship|add-funds|withdraw|profile)",
-      "destination": "/app/index.html"
+      "destination": "/app"
     },
-    { "source": "/feed/following", "destination": "/app/index.html" },
-    { "source": "/slab/:id", "destination": "/app/index.html" }
+    { "source": "/feed/following", "destination": "/app" },
+    { "source": "/slab/:id", "destination": "/app" }
   ],
   "headers": [
     {

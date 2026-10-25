@@ -23,7 +23,7 @@ function resolve(path) {
   if (path === '/feed/following') return { route: '/feed', params: { tab: 'following' } };
   const slab = path.match(/^\/slab\/([\w-]+)$/);
   if (slab) return { route: '/vault', params: { card: slab[1] } };
-  return { route: ROUTES[path] ? path : '/packs', params: {} };
+  return ROUTES[path] ? { route: path, params: {} } : { route: '/packs', params: {}, fallback: true };
 }
 
 const PRIMARY = [
@@ -319,8 +319,10 @@ let current = null;
 let shellEl = null;
 
 async function render(path, { push = false } = {}) {
-  const full = path;
-  const { route, params } = resolve(path.split('?')[0]);
+  const resolved = resolve(path.split('?')[0]);
+  const { route, params } = resolved;
+  // Unknown paths (including /app itself) show Packs at its canonical URL.
+  const full = resolved.fallback ? '/packs' : path;
   if (push) history.pushState({}, '', full);
   else if (location.pathname + location.search !== full) history.replaceState({}, '', full);
   markNav(shellEl, route);
