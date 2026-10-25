@@ -230,7 +230,7 @@
         root: layer,
         pack: index,
         from: { x: box.left, y: box.top, w: box.width, h: box.height },
-        enterHref: 'https://app.godpack.gg',
+        enterHref: '/packs',
         keyboard,
         onClose: endDemo,
       });

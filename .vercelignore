@@ -1,4 +1,4 @@
-# Only the static site is deployed: index.html, css/, js/, assets/, vercel.json.
+# Only the static site is deployed: index.html, css/, js/, assets/, app/, vercel.json.
 node_modules
 tools
 package.json
@@ -12,3 +12,5 @@ README.md
 .impeccable
 .env*
 .vercel
+app/README.md
+.github

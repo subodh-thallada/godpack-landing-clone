@@ -1,8 +1,12 @@
-# Godpack landing page — recreation
+# Godpack landing page and app — recreation
 
-A from-scratch recreation of the godpack.gg landing page: same layout, type,
-colours, breakpoints, animations and interactions. The code and artwork are
-original (see "What's original" below).
+A from-scratch recreation of the godpack.gg landing page and the
+app.godpack.gg web app: same layout, type, colours, breakpoints, animations
+and interactions. The code and artwork are original (see "What's original"
+below). The landing page lives at `/`, the app at `/packs` and its sibling
+routes; the landing page's Enter buttons, ribbon cards and footer links lead
+into the app. See [app/README.md](app/README.md) for the app and its demo
+account.
 
 ## Run it
 
@@ -11,7 +15,8 @@ npm install
 npm start
 ```
 
-Then open http://localhost:4173/.
+Then open http://localhost:4173/ (landing page) or http://localhost:4173/packs
+(app). The server applies the same redirects and rewrites as `vercel.json`.
 
 Formatting is handled by Prettier (`.prettierrc.json`):
 
@@ -32,7 +37,8 @@ npm run format:check  # verify only
 | `js/demo.js`          | Pack-opening demo, loaded on first tap: tear the pack, token spin and tier recolour, slab reveal with streaks, arcs, burst and flip    |
 | `tools/art/`          | Generators for all the artwork (foil packs, graded slabs, logo, icons, link preview)                                                   |
 | `tools/render-art.js` | Renders the generators to `assets/` (`npm run art`)                                                                                    |
-| `tools/serve.js`      | Static preview server                                                                                                                  |
+| `tools/serve.js`      | Local server; applies the `vercel.json` redirects and rewrites                                                                         |
+| `app/`                | The app recreation (`app/index.html`, `app/css/`, `app/js/`, `app/assets/cards/`); see `app/README.md`                                 |
 
 Every animation respects `prefers-reduced-motion`.
 
@@ -74,7 +80,11 @@ Messages caches previews per URL, so test a changed preview with a fresh query s
 ## Deploy (Vercel)
 
 It's a static site with no build step. `.vercelignore` uploads only `index.html`,
-`css/`, `js/`, `assets/` and `vercel.json` (cache and security headers).
+`css/`, `js/`, `assets/`, `app/` and `vercel.json`. `vercel.json` rewrites the app
+routes (`/packs`, `/battles`, `/vault`, `/feed`, `/feed/following`, `/rewards`,
+`/ship`, `/add-funds`, `/withdraw`, `/profile`, `/slab/:id`) to
+`app/index.html`, redirects `/app` to `/packs`, and sets cache and security
+headers.
 
 ```bash
 vercel deploy
