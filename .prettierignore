@@ -4,3 +4,6 @@ package-lock.json
 .claude/
 .impeccable/
 .vercel/
+
+# The phone app (mobile/) has its own tooling.
+mobile/

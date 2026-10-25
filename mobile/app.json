@@ -1,0 +1,60 @@
+{
+  "expo": {
+    "name": "Godpack (Unofficial Demo)",
+    "slug": "godpack-demo",
+    "description": "An unofficial recreation of the Godpack app with original art and demo data. No real money.",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "godpackdemo",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#101014",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.example.godpackdemo",
+      "usesAppleSignIn": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.example.godpackdemo",
+      "adaptiveIcon": {
+        "backgroundColor": "#101014",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "output": "single",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-image",
+      "expo-web-browser",
+      "expo-font",
+      "expo-apple-authentication",
+      [
+        "expo-notifications",
+        {
+          "color": "#7954ed"
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#101014",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 160
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

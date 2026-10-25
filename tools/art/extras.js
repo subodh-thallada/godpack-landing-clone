@@ -122,6 +122,33 @@
     },
     'og-image.png': og,
   };
+  // App icons for the mobile demo (mobile/assets). `kind`: icon (full
+  // square), foreground (mark on transparent, Android adaptive), background
+  // (plain gradient), mono (white mark) or splash (mark on transparent).
+  window.renderAppIcon = function (kind, size) {
+    if (kind === 'favicon') return icon(size, 0.16);
+    var c = A.canvas(size, size),
+      ctx = c.getContext('2d');
+    if (kind === 'background' || kind === 'icon') {
+      var bg = ctx.createLinearGradient(0, 0, size, size);
+      bg.addColorStop(0, '#1d1238');
+      bg.addColorStop(1, '#0b0a0e');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, size, size);
+      // iOS icons are full-bleed squares: the system rounds the corners.
+      if (kind === 'icon') mark(ctx, size / 2, size / 2, size * 0.34);
+      return c;
+    }
+    // Adaptive foregrounds keep the mark inside the central safe zone.
+    mark(ctx, size / 2, size / 2, size * (kind === 'splash' ? 0.42 : 0.26));
+    if (kind === 'mono') {
+      ctx.globalCompositeOperation = 'source-in';
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, size, size);
+    }
+    return c;
+  };
+
   window.EXTRAS = Object.keys(EXTRAS);
   window.renderExtra = function (name) {
     if (name === 'og-image.png' && !window.__packForOg) window.__packForOg = window.renderPack('arena');
