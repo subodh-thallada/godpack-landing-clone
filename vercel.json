@@ -11,7 +11,11 @@
   ],
   "rewrites": [
     {
-      "source": "/(packs|battles|vault|feed|rewards|ship|add-funds|withdraw|profile)",
+      "source": "/(packs|battles|market|vault|feed|rewards|ship|add-funds|withdraw|profile)",
+      "destination": "/app"
+    },
+    {
+      "source": "/market/(l|t)/:id",
       "destination": "/app"
     },
     {

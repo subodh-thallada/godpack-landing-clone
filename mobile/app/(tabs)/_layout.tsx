@@ -1,4 +1,4 @@
-// The five main tabs under a shared header. The first visit after onboarding
+// The six main tabs under a shared header. The first visit after onboarding
 // (or "Replay the tour" in Settings) plays the spotlight tour.
 import { Redirect } from 'expo-router';
 import { Tabs } from 'expo-router/js-tabs';
@@ -49,6 +49,7 @@ export default function TabsLayout() {
     >
       <Tabs.Screen name="packs" options={{ title: 'Packs' }} />
       <Tabs.Screen name="battles" options={{ title: 'Battles' }} />
+      <Tabs.Screen name="market" options={{ title: 'Market' }} />
       <Tabs.Screen name="vault" options={{ title: 'Vault' }} />
       <Tabs.Screen name="feed" options={{ title: 'Feed' }} />
       <Tabs.Screen name="rewards" options={{ title: 'Rewards' }} />

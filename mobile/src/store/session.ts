@@ -7,6 +7,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import { CARDS, CHAT_LATER, PACKS, USERS, cardById, packById, pullsFor, seeded, user, type Pack, type Pull } from '../data';
 import { drawBattle } from '../data/battle';
 import { money, round2 } from '../lib/format';
+import type { MarketState } from '../market/engine';
 import type { Tier } from '../theme';
 
 export const START_BALANCE = 250;
@@ -70,6 +71,7 @@ export type Session = {
   createdAt: number;
   welcomeUid?: string;
   chatScript: number; // how many scripted chat messages have been posted
+  market?: MarketState; // added on first visit to the Market (see store/market.ts)
 };
 
 export type Profile = Pick<Session, 'handle' | 'name' | 'color' | 'provider' | 'email'>;

@@ -24,6 +24,7 @@ it shares the landing page's `/assets/` (packs, slabs, logo, favicon).
 | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `/packs`     | Pack stage (step between tiers, foil and tilt follow the pointer, Safe mode), order panel (quantity, tier menu, odds, buy), Recent Hits and Top Hits belts |
 | `/battles`   | The same store in battle mode (seats, opponent, Lowest wins) and open battles with tier filters                                                            |
+| `/market`    | Market pulse and sales tape; Buy, Auctions, Trade, Selling and Activity tabs; listings at `/market/l/:id`, trades at `/market/t/:id`                       |
 | `/vault`     | Stats, search / filter / sort toolbar, empty state                                                                                                         |
 | `/feed`      | All (tier-tinted pull timeline), Following, Battles (with replays), Leaderboard (best pulls / volume, time ranges)                                         |
 | `/rewards`   | Flip-able VIP card, tier table, free packs, referral cash, invites, daily check-in                                                                         |
@@ -56,6 +57,19 @@ Everything a logged-in collector can do works:
 - **Vault** — auto-sell timers, search / filter / sort, select-and-sell
   tray, Sell all, and card pages (`/slab/:id`) with a confirmed **Sell** and
   a **Ship** form (US $5 / Canada $10).
+- **Market** — buy cards other collectors list (search, raw / graded,
+  tiers, sort, watchlist), make an offer and take or decline a counter, set
+  price alerts, and see each card's price history. Bid in auctions: you set
+  a max and the Market bids for you one step at a time; there's Buy now,
+  reserves, and bids in the last 30 seconds add time. List cards from your
+  Vault at a fixed price or as an auction, alone or as a bundle of up to 6;
+  collectors buy them, make offers you can accept / counter / decline, and
+  you can cut the price or take a listing down. Trade with any collector
+  (up to 4 cards a side, plus cash either way, so 2-for-1 or cards for
+  cash); a meter shows how likely they are to say yes, they may counter, and
+  they send you trades of their own. Listed and offered cards and cash are
+  held until the deal ends; sellers pay a 5% fee. The engine is
+  `js/market/engine.js`, shared with the phone app.
 - **Shipments** — each shipment moves Requested → Packed → Shipped →
   Delivered over a few minutes, with tracking and notifications.
 - **Following** — every @name opens that collector's profile
@@ -91,6 +105,9 @@ Everything a logged-in collector can do works:
 - `index.html`
 - `css/app.css` — tokens, shell, buttons, dialogs, footer
 - `css/pages.css` — per-page styles
+- `css/market.css` — the Market
+- `js/market/engine.js` — Market rules (listings, offers, auctions, trades,
+  the collectors' side), shared with `mobile/`
 - `js/main.js` — router, shell, shared header/footer
 - `js/data.js` — demo data
 - `js/ui/` — icons, DOM helpers, store block, belt, dialogs, chat dock

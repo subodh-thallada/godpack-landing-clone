@@ -6,10 +6,11 @@ import { router, usePathname } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 import { autoSell, checkShipments, dueBattle, matchBattle, maybeGainFollower, postScriptedChat, refreshLobby } from '../store/session';
+import { tickMarket } from '../store/market';
 import { toast } from './toast';
 
 // Screens where a battle replay may open on its own.
-const CALM = ['/packs', '/battles', '/vault', '/feed', '/rewards', '/profile'];
+const CALM = ['/packs', '/battles', '/market', '/vault', '/feed', '/rewards', '/profile'];
 
 export function useWorld(enabled: boolean) {
   const path = usePathname();
@@ -25,12 +26,22 @@ export function useWorld(enabled: boolean) {
       if (state !== 'active') return;
       autoSell();
       checkShipments();
+      tickMarket();
     });
     const follower = setTimeout(() => {
       const h = maybeGainFollower();
       if (h) toast(`@${h} followed you`);
     }, 45000);
     const chat = setInterval(() => postScriptedChat(), 38000);
+    // The market: answers to your offers and trades, sales, bids, new
+    // listings. The most important thing that happened gets a toast.
+    const marketBeat = () => {
+      const ev = tickMarket();
+      const top = ev.find((e) => e.tone === 'good') ?? ev[0];
+      if (top) toast(top.title, top.tone === 'warn' ? 'warn' : top.tone === 'good' ? 'good' : 'default');
+    };
+    marketBeat();
+    const market = setInterval(marketBeat, 3000);
     const battles = setInterval(() => {
       if (!CALM.includes(pathRef.current)) return;
       const due = dueBattle();
@@ -47,6 +58,7 @@ export function useWorld(enabled: boolean) {
       resume.remove();
       clearTimeout(follower);
       clearInterval(chat);
+      clearInterval(market);
       clearInterval(battles);
     };
   }, [enabled]);

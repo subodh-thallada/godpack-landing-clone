@@ -4,9 +4,9 @@ An iOS and Android app (Expo / React Native) that sits alongside the web
 recreation in this repo. It doesn't replace the website: the site keeps
 deploying to Vercel from the repo root, and this folder is ignored there.
 
-It has every feature of the web app — packs, battles, the vault (sell and
-ship), the feed, chat, rewards, wallet, profiles — plus a first-run
-onboarding and an in-app tour. Everything uses demo credit; no real money,
+It has every feature of the web app — packs, battles, the Market (buy, sell,
+auctions, offers and trades), the vault (sell and ship), the feed, chat,
+rewards, wallet, profiles — plus a first-run onboarding and an in-app tour. Everything uses demo credit; no real money,
 cards or shipping.
 
 ## Same design as the website
@@ -21,6 +21,37 @@ cards or shipping.
   Android. Its art lives in `public/ceremony/`.
 - Same logo, pack art, cards and slabs (original art generated for this
   project).
+
+## Market
+
+A marketplace for the cards in your Vault, shared with the website: the rules
+live in one engine, `src/market/engine.js`, an exact copy of the web app's
+`app/js/market/engine.js` (a unit test fails if they drift).
+
+- **Buy:** listings from the demo's collectors, with search, raw/graded and
+  tier filters, sorting (ending soon, newest, price, best deal), a watchlist,
+  bundles, deal and price-drop badges, each card's recent sale prices, and
+  price alerts.
+- **Offers:** offer under the asking price; the money is held until the
+  seller answers (accept, counter or pass). Collectors make offers on your
+  listings too: accept, counter or decline.
+- **Auctions:** proxy bidding (you set a max; you pay one step over the next
+  bid), buy-now prices, a reserve on your own auctions, and bids in the last
+  30 seconds add time. Outbid alerts, and the winner's card lands in the Vault.
+- **Selling:** list one card or a bundle of up to six at a fixed price
+  (with quick-sale / market / patient suggestions, the 5% fee and a "how fast
+  will it sell" hint) or as an auction. Edit the price or take it down.
+- **Trades:** any shape — 1-for-1, 2-for-1, up to four cards a side, plus
+  cash either way — with a meter showing how likely the collector is to say
+  yes. They accept, decline or ask for a little cash; they also send you
+  trade offers for your cards (often two for one), which you can accept,
+  decline or counter.
+- **Activity:** everything that happened, with amounts, plus your open offers
+  and alerts. Notifications link straight to the listing or trade.
+
+Listed, offered and bid cards and cash are held until the deal resolves. The
+other collectors answer within seconds and the market keeps moving (new
+listings, price cuts, sales, bids) while the app is open.
 
 ## Onboarding and tour
 
@@ -63,11 +94,12 @@ a development build (`npx expo run:ios`) rather than Expo Go.
 
 ```bash
 npm run typecheck       # TypeScript
-npm test                # Jest: store logic, recommendations, auth, tour, sign-in buttons
+npm test                # Jest: store logic, the market engine, recommendations, auth, tour, sign-in buttons
 npm run doctor          # expo-doctor
 npm run export:native   # iOS + Android bundles (Hermes), including the ceremony's web bundle
 npm run export:web && node tools/serve-dist.js 4180
-BASE=http://localhost:4180 node e2e/app.e2e.js   # Playwright, iPhone-sized, screenshots in e2e/screenshots
+BASE=http://localhost:4180 node e2e/app.e2e.js     # Playwright, iPhone-sized, screenshots in e2e/screenshots
+BASE=http://localhost:4180 node e2e/market.e2e.js  # every Market flow (fast-forwards the page clock)
 ```
 
 The end-to-end test needs Playwright (`npm i -D playwright` and
@@ -83,13 +115,15 @@ Builds never include it.
 
 ```
 app/               screens (expo-router): onboarding, signin, (tabs)/…, open, replay,
-                   wallet, odds, pull, card/[uid], profile/…, chat, settings, …
+                   wallet, odds, pull, card/[uid], listing/[id], trade/…, sell,
+                   profile/…, chat, settings, …
 src/components/    UI kit, header, tab bar + chat dock, store, hits, tour, sign-in
 src/dom/           the website's pack-opening ceremony as a DOM component
-src/store/         demo account (session) and preferences, persisted on device
+src/store/         demo account (session), preferences and the market, persisted on device
+src/market/        the marketplace engine, shared with the website (engine.js + types)
 src/onboarding/    the onboarding scene: stage, Pip, intro, sign-up sheet, code field, previews
 src/lib/           motion tokens, recommendations, tour steps, auth, notifications, navigation
 src/dev/           development-only worst-case data (?data=worst)
 src/data/          cards, packs and odds, collectors, battle draws
-e2e/               Playwright end-to-end test
+e2e/               Playwright end-to-end tests (the whole app; the Market)
 ```

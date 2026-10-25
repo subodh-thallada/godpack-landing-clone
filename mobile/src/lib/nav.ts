@@ -2,10 +2,10 @@
 // stacking a second copy of them on top.
 import { type Href, router } from 'expo-router';
 
-const TABS = ['/packs', '/battles', '/vault', '/feed', '/rewards'];
+const TABS = ['/packs', '/battles', '/market', '/vault', '/feed', '/rewards'];
 
 export function go(href: string) {
-  if (TABS.includes(href)) {
+  if (TABS.includes(href.split('?')[0])) {
     if (router.canDismiss()) router.dismissAll();
     router.navigate(href as Href);
     return;

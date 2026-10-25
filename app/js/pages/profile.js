@@ -9,7 +9,16 @@ import { icon } from '../ui/icons.js';
 import { html, raw, el, $, $$ } from '../ui/dom.js';
 import { viewHead, avatarOf, navigate as go } from '../main.js';
 import { cardArt, slabArt, money, USERS, profileOf, pullsOf, seeded } from '../data.js';
-import { session, cardOf, vaultValue, portfolioSeries, toggleFollow, isFollowing } from '../session.js';
+import {
+  session,
+  cardOf,
+  vaultValue,
+  portfolioSeries,
+  toggleFollow,
+  isFollowing,
+  market,
+  marketOf,
+} from '../session.js';
 import { openDialog, openInspect } from '../ui/dialogs.js';
 
 export const title = 'Profile';
@@ -185,10 +194,17 @@ function mountOther(view, { scope, openAuth, toast, navigate }, handle) {
     )}
     <div class="profile-actions">
       <button class="btn profile-follow" type="button"></button>
+      <button class="btn btn--secondary" type="button" data-act="trade">
+        ${raw(icon('trade', { size: 17 }))}Trade
+      </button>
       <button class="btn btn--secondary" type="button" data-act="share">
         ${raw(icon('share', { size: 17 }))}Share profile
       </button>
     </div>
+    <section class="profile-market" hidden>
+      <div class="section-head"><h2 class="profile-vaulted__title">On the Market</h2></div>
+      <div class="card-grid profile-market__grid"></div>
+    </section>
     <div class="section-head profile-vaulted">
       <h2 class="profile-vaulted__title">Collection</h2>
       <div class="profile-vaulted__tools">${raw(sortMarkup('Recent'))}</div>
@@ -214,6 +230,41 @@ function mountOther(view, { scope, openAuth, toast, navigate }, handle) {
   });
   scope.add(session.on(paintFollow));
 
+  // Their live listings on the Market.
+  const onMarket = $('.profile-market', view);
+  const paintMarket = () => {
+    if (!session.signedIn) return;
+    marketOf();
+    const list = market.browse(session.state, { seller: handle, sort: 'Newest' });
+    onMarket.hidden = !list.length;
+    $('.profile-market__grid', view).innerHTML = list
+      .map((l, i) => {
+        const it = l.items[0];
+        const c = cardOf(it);
+        const tier = it.tier === 'common' ? 'base' : it.tier;
+        const label = l.items.length > 1 ? `${c.name} + ${l.items.length - 1} more` : c.name;
+        return html`<div class="vault-cell" style="--n:${i}">
+          <a
+            class="tile tile--vault tier-${tier}"
+            href="/market/l/${l.id}"
+            data-link
+            aria-label="${label}, ${money(l.price)}"
+          >
+            <span class="sale-timer">${l.kind === 'auction' ? 'Auction' : 'Buy now'}</span>
+            <span class="tile__art"
+              ><span class="thumb${it.graded ? ' is-slab' : ''} glow-${tier}"
+                ><img src="${it.graded ? slabArt(c.id) : cardArt(c.id, 'small')}" alt="" loading="lazy" /></span
+            ></span>
+            <span class="tile__cap"
+              ><span class="tile__value num">${money(l.price)}</span><span class="tile__name">${label}</span></span
+            >
+          </a>
+        </div>`;
+      })
+      .join('');
+  };
+  paintMarket();
+
   const grid = $('.profile-grid', view);
   const paintGrid = () => {
     const list = sortList(pulls, sort);
@@ -232,6 +283,11 @@ function mountOther(view, { scope, openAuth, toast, navigate }, handle) {
   scope.on(view, 'click', (e) => {
     const b = e.target.closest('[data-list]');
     if (b) openConnections(handle, b.dataset.list, { openAuth, toast });
+    if (e.target.closest('[data-act="trade"]')) {
+      if (!session.signedIn) return openAuth('login');
+      navigate(`/market?with=${handle}`);
+      return;
+    }
     if (e.target.closest('[data-act="share"]')) {
       if (navigator.clipboard) navigator.clipboard.writeText(`${location.origin}/profile/${handle}`).catch(() => {});
       toast('Profile link copied');

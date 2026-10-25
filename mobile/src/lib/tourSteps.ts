@@ -29,6 +29,13 @@ export function tourSteps(a: Answers, balance: number, freePacks: number): TourS
       body: 'Two collectors open the same packs. The bigger total takes every card — or the smaller one in Lowest wins.',
     },
     {
+      target: 'tab-market',
+      icon: 'market',
+      shape: 'rect',
+      title: 'Buy, sell and trade',
+      body: 'The Market: buy cards other collectors list, bid on auctions, make offers, and trade — two for one, or cards plus cash.',
+    },
+    {
       target: 'tab-vault',
       icon: 'vault',
       shape: 'rect',

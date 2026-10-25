@@ -100,7 +100,16 @@ export function mount(view, { scope, openAuth, navigate, toast }) {
     $('.open-battles__count', view).textContent = `${all.length} open`;
   };
   paint();
-  scope.add(session.on(paint));
+  // The market saves every few seconds; only repaint when the battles change.
+  let lastRows = JSON.stringify(rows().map((b) => b.id));
+  scope.add(
+    session.on(() => {
+      const next = JSON.stringify(rows().map((b) => b.id));
+      if (next === lastRows) return;
+      lastRows = next;
+      paint();
+    }),
+  );
 
   // Tick the countdowns in place; repaint when one runs out.
   scope.timer(() => {

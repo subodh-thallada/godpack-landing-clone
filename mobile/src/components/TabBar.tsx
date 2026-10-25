@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { plural } from '../lib/format';
 import { EASE_OUT } from '../lib/motion';
 import { usePulse } from './Curtain';
+import { pendingForMe } from '../store/market';
 import { openBattles, useSession } from '../store/session';
 import { colors, radius } from '../theme';
 import { Icon, type IconName } from './Icon';
@@ -18,6 +19,7 @@ import { Press } from './ui';
 export const TABS: { name: string; label: string; icon: IconName }[] = [
   { name: 'packs', label: 'Packs', icon: 'packs' },
   { name: 'battles', label: 'Battles', icon: 'battles' },
+  { name: 'market', label: 'Market', icon: 'market' },
   { name: 'vault', label: 'Vault', icon: 'vault' },
   { name: 'feed', label: 'Feed', icon: 'feed' },
   { name: 'rewards', label: 'Rewards', icon: 'rewards' },
@@ -28,6 +30,7 @@ export function TabBar({ state, emitter, navigateToTab }: BottomTabBarProps) {
   const s = useSession((x) => x.s);
   const counts: Record<string, { n: number; accent: boolean }> = {
     battles: { n: openBattles(s).length, accent: true },
+    market: { n: pendingForMe(s?.market), accent: true },
     vault: { n: s?.vault.length ?? 0, accent: false },
   };
   return (

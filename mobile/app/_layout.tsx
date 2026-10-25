@@ -76,6 +76,10 @@ export default function RootLayout() {
                 <Stack.Screen name="pull" options={sheet} />
                 <Stack.Screen name="card/[uid]" options={sheet} />
                 <Stack.Screen name="connections" options={sheet} />
+                <Stack.Screen name="listing/[id]" options={sheet} />
+                <Stack.Screen name="trade/[id]" options={sheet} />
+                <Stack.Screen name="trade/new" />
+                <Stack.Screen name="sell" />
                 <Stack.Screen name="profile/index" />
                 <Stack.Screen name="profile/[handle]" />
                 <Stack.Screen name="notifications" />

@@ -11,7 +11,7 @@ const path = require('path');
 const BASE = process.env.BASE || 'http://localhost:4180';
 const OUT = path.join(__dirname, 'screenshots');
 fs.mkdirSync(OUT, { recursive: true });
-for (const f of fs.readdirSync(OUT)) if (f.endsWith('.png')) fs.unlinkSync(path.join(OUT, f));
+for (const f of fs.readdirSync(OUT)) if (f.endsWith('.png') && !f.startsWith('market-')) fs.unlinkSync(path.join(OUT, f));
 
 let fails = 0;
 let shot = 0;
@@ -230,14 +230,14 @@ async function tour(p) {
   ok('the opening finishes', await until(async () => (await p.locator('[data-testid="curtain"]').count()) === 0, 5000));
   ok('tour starts after the opening', await visible(p, 'tour-tip', 6000));
   const titles = [];
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 7; i++) {
     await p.waitForTimeout(500);
     titles.push(await text(p, 'tour-title'));
-    ok(`tour step ${i + 1} counter`, (await text(p, 'tour-count')).toLowerCase() === `${i + 1} of 6`);
+    ok(`tour step ${i + 1} counter`, (await text(p, 'tour-count')).toLowerCase() === `${i + 1} of 7`);
     await snap(p, `tour-${i + 1}`);
     await tap(p, 'tour-next');
   }
-  ok('tour covers wallet, packs, battles, vault, feed, rewards', titles[0] === 'Your wallet' && titles[1] === 'Open packs here' && /Battle/.test(titles[2]) && /Vault/.test(titles[3]) && /Follow/.test(titles[4]) && /free pack|Rewards/.test(titles[5]), titles.join(' | '));
+  ok('tour covers wallet, packs, battles, market, vault, feed, rewards', titles[0] === 'Your wallet' && titles[1] === 'Open packs here' && /Battle/.test(titles[2]) && /trade/.test(titles[3]) && /Vault/.test(titles[4]) && /Follow/.test(titles[5]) && /free pack|Rewards/.test(titles[6]), titles.join(' | '));
   ok('tour closes after the last step', !(await visible(p, 'tour-tip', 800)));
 }
 

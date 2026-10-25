@@ -4,6 +4,7 @@
 // in. Every balance here is pretend demo credit.
 import { store } from './ui/dom.js';
 import { CARDS, PACKS, USERS, pullsFor, seeded, user } from './data.js';
+import { createMarket } from './market/engine.js';
 
 const KEY = 'session';
 const VERSION = 3;
@@ -486,6 +487,75 @@ export function myPulls() {
     minutesAgo: Math.floor((Date.now() - p.at) / 60000),
     pack: p.pack,
   }));
+}
+
+// ---- marketplace ----
+
+const marketHref = (t) =>
+  t.type === 'listing' ? `/market/l/${t.id}` : t.type === 'trade' ? `/market/t/${t.id}` : '/market?tab=activity';
+
+// The shared engine (the app runs an identical copy). Accounts saved before
+// the market existed get one the first time it's needed.
+export const market = createMarket({ cards: CARDS, users: USERS, packs: PACKS, href: marketHref });
+
+export function marketOf() {
+  if (!state) return null;
+  if (!state.market) {
+    market.ensure(state);
+    store.set(KEY, state);
+  }
+  return state.market;
+}
+
+// Runs a market action on the account, saves, and returns the engine's result.
+export function marketDo(fn) {
+  let out = { ok: false, error: 'signedOut' };
+  session.update((s) => {
+    market.ensure(s);
+    out = fn(s);
+  });
+  return out;
+}
+
+// Offers and trades waiting on you.
+export function marketWaiting() {
+  const m = state && state.market;
+  if (!m) return 0;
+  return (
+    m.offers.filter((o) => o.dir === 'in' && o.status === 'pending').length +
+    m.trades.filter((t) => t.dir === 'in' && t.status === 'pending').length
+  );
+}
+
+// A cheap summary of what the market views show, so a tick that changed
+// nothing visible doesn't make every view repaint.
+function marketPrint(s) {
+  const m = s.market;
+  if (!m) return '';
+  const top = (x, k) => (x.length ? x[0][k] : '');
+  return [
+    s.balance,
+    s.vault.length,
+    top(s.notifications, 'id'),
+    top(m.sales, 'id'),
+    top(m.history, 'id'),
+    m.watch.length,
+    m.alerts.length,
+    m.listings.map((l) => `${l.id}${l.status}${l.price}${l.bids ? l.bids.length : ''}${l.ends || ''}`).join(),
+    m.offers.map((o) => o.id + o.status).join(),
+    m.trades.map((t) => t.id + t.status).join(),
+  ].join('|');
+}
+
+// The market moves on its own. Saves every tick, but only tells the views
+// when something they show changed. Returns what's worth a toast.
+export function marketTick(now = Date.now()) {
+  if (!state || !state.signedIn) return [];
+  const before = marketPrint(state);
+  const events = market.tick(state, now);
+  if (marketPrint(state) !== before) save();
+  else store.set(KEY, state);
+  return events;
 }
 
 export { PACKS, user };

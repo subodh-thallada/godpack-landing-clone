@@ -54,6 +54,9 @@ export function mount(view, { scope, openAuth, toast, navigate, params = {} }) {
         ${raw(icon('cash', { size: 18 }))}Sell all
       </button>
     </div>
+    <a class="mk-vault-link" href="/market?tab=selling" data-link hidden
+      >${raw(icon('market', { size: 16 }))}<span></span>${raw(icon('chevronRight', { size: 14 }))}</a
+    >
     <div class="vault-tools">
       <label class="search"
         ><span class="sr">Search your cards</span>${raw(icon('search', { size: 18 }))}<input
@@ -123,6 +126,12 @@ export function mount(view, { scope, openAuth, toast, navigate, params = {} }) {
   function paint() {
     const s = session.state;
     $('[data-stat="count"]', view).textContent = s ? s.vault.length.toLocaleString('en-US') : '—';
+    // Cards you've put up for sale live on the Market until they sell.
+    const listed = s && s.market ? s.market.listings.filter((l) => l.mine && l.status === 'active') : [];
+    const n = listed.reduce((a, l) => a + l.items.length, 0);
+    const link = $('.mk-vault-link', view);
+    link.hidden = !n;
+    $('span', link).textContent = `${n.toLocaleString('en-US')} ${n === 1 ? 'card' : 'cards'} listed on the Market`;
     $('[data-stat="value"]', view).textContent = s ? money(vaultValue()) : '—';
     if (!s) {
       body.innerHTML = html`<div class="empty surface">
@@ -171,7 +180,23 @@ export function mount(view, { scope, openAuth, toast, navigate, params = {} }) {
   }
 
   paint();
-  scope.add(session.on(() => paint()));
+  // Repaint only when the vault itself changes (the market saves often, and
+  // a repaint would replay the grid's entrance).
+  const sig = () => {
+    const s = session.state;
+    if (!s) return '';
+    const listed = s.market ? s.market.listings.filter((l) => l.mine && l.status === 'active').length : 0;
+    return `${s.vault.map((v) => v.uid).join()}|${listed}`;
+  };
+  let last = sig();
+  scope.add(
+    session.on(() => {
+      const next = sig();
+      if (next === last) return;
+      last = next;
+      paint();
+    }),
+  );
 
   // Toolbar.
   const chips = $$('.vault-tools__chips .chip', view);
@@ -299,6 +324,9 @@ function openCard(uid, { navigate, toast }) {
       <p class="slab-modal__value num">${money(v.value)}</p>
       <p class="slab-modal__name">${c.name}</p>
       <div class="slab-modal__actions">
+        <button class="btn btn--primary slab-modal__list" type="button">
+          ${raw(icon('tag', { size: 18 }))}List on Market
+        </button>
         <button class="btn btn--secondary slab-modal__sell" type="button">
           ${raw(icon('cash', { size: 18 }))}Sell
         </button>
@@ -320,13 +348,20 @@ function openCard(uid, { navigate, toast }) {
   const actions = $('.slab-modal__actions', node);
   const showActions = () => {
     actions.className = 'slab-modal__actions';
-    actions.innerHTML = html`<button class="btn btn--secondary slab-modal__sell" type="button">
-        ${raw(icon('cash', { size: 18 }))}Sell</button
+    actions.innerHTML = html`<button class="btn btn--primary slab-modal__list" type="button">
+        ${raw(icon('tag', { size: 18 }))}List on Market</button
+      ><button class="btn btn--secondary slab-modal__sell" type="button">${raw(icon('cash', { size: 18 }))}Sell</button
       ><button class="btn btn--secondary slab-modal__ship" type="button">
         ${raw(icon('shipping', { size: 18 }))}Ship
       </button>`;
   };
   actions.addEventListener('click', (e) => {
+    if (e.target.closest('.slab-modal__list')) {
+      leaving = true;
+      close();
+      navigate(`/market?tab=selling&sell=${v.uid}`);
+      return;
+    }
     if (e.target.closest('.slab-modal__sell')) {
       actions.className = 'slab-modal__actions is-confirm';
       actions.innerHTML = html`<p class="slab-modal__quote">

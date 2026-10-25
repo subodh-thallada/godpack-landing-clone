@@ -12,12 +12,15 @@ import {
   lobbyBattles,
   refreshLobby,
   checkShipments,
+  marketTick,
+  marketWaiting,
 } from './session.js';
 import { money, USERS, PACKS } from './data.js';
 
 const ROUTES = {
   '/packs': () => import('./pages/packs.js'),
   '/battles': () => import('./pages/battles.js'),
+  '/market': () => import('./pages/market.js'),
   '/vault': () => import('./pages/vault.js'),
   '/feed': () => import('./pages/feed.js'),
   '/rewards': () => import('./pages/rewards.js'),
@@ -32,6 +35,8 @@ function resolve(path) {
   if (path === '/feed/following') return { route: '/feed', params: { tab: 'following' } };
   const slab = path.match(/^\/slab\/([\w-]+)$/);
   if (slab) return { route: '/vault', params: { card: slab[1] } };
+  const mk = path.match(/^\/market\/(l|t)\/([\w-]+)$/);
+  if (mk) return { route: '/market', params: mk[1] === 'l' ? { listing: mk[2] } : { trade: mk[2] } };
   const prof = path.match(/^\/profile\/([\w-]+)$/);
   if (prof) return { route: '/profile', params: { handle: prof[1] } };
   return ROUTES[path] ? { route: path, params: {} } : { route: '/packs', params: {}, fallback: true };
@@ -40,6 +45,7 @@ function resolve(path) {
 const PRIMARY = [
   ['/packs', 'Packs', 'packs'],
   ['/battles', 'Battles', 'battles'],
+  ['/market', 'Market', 'market'],
   ['/vault', 'Vault', 'vault'],
   ['/feed', 'Feed', 'feed'],
   ['/rewards', 'Rewards', 'rewards'],
@@ -155,7 +161,14 @@ function wireShell(shell) {
 // Counts and the account button depend on the session.
 function paintSide(shell) {
   const s = session.state;
-  const counts = { '/battles': s ? lobbyBattles().length + openBattleCount() : 0, '/vault': s ? s.vault.length : null };
+  const waiting = s ? marketWaiting() : 0;
+  const counts = {
+    '/battles': s ? lobbyBattles().length + openBattleCount() : 0,
+    '/market': waiting || null,
+    '/vault': s ? s.vault.length : null,
+  };
+  const alert = { '/battles': true, '/market': true };
+  const what = { '/battles': () => 'open', '/market': () => 'waiting on you' };
   $$('.nav__item[data-nav]', shell).forEach((a) => {
     const href = a.dataset.nav;
     const c = $('.nav__count', a);
@@ -164,10 +177,10 @@ function paintSide(shell) {
       c.hidden = false;
       const n = counts[href].toLocaleString('en-US');
       c.textContent = n;
-      c.classList.toggle('is-alert', href === '/battles' && counts[href] > 0);
+      c.classList.toggle('is-alert', !!alert[href] && counts[href] > 0);
       a.setAttribute(
         'aria-label',
-        href === '/battles' ? `${label}, ${n} open` : `${label}, ${n} ${counts[href] === 1 ? 'card' : 'cards'}`,
+        what[href] ? `${label}, ${n} ${what[href]()}` : `${label}, ${n} ${counts[href] === 1 ? 'card' : 'cards'}`,
       );
     } else {
       c.hidden = true;
@@ -376,6 +389,9 @@ export function appFoot() {
 
 let current = null;
 let shellEl = null;
+// The route being shown (set before its module loads, so a save that lands
+// mid-navigation repaints the sidebar for the right page).
+let showing = { route: '/packs', params: {} };
 
 async function render(path, { push = false } = {}) {
   const resolved = resolve(path.split('?')[0]);
@@ -384,6 +400,7 @@ async function render(path, { push = false } = {}) {
   const full = resolved.fallback ? '/packs' : path;
   if (push) history.pushState({}, '', full);
   else if (location.pathname + location.search !== full) history.replaceState({}, '', full);
+  showing = { route, params };
   markNav(shellEl, route, params);
 
   const mod = await ROUTES[route]();
@@ -431,7 +448,7 @@ function boot() {
   let wasIn = session.signedIn;
   session.on(() => {
     paintSide(shellEl);
-    markNav(shellEl, current ? current.route : '/packs', current ? current.params : {});
+    markNav(shellEl, showing.route, showing.params);
     if (session.signedIn !== wasIn) {
       wasIn = session.signedIn;
       render(location.pathname + location.search);
@@ -498,6 +515,19 @@ function boot() {
   setInterval(() => session.signedIn && checkShipments(), 5000);
   setTimeout(() => session.signedIn && maybeGainFollower(), 45000);
 
+  // The market: collectors answer offers and trades, buy and bid on your
+  // listings and list new cards. A couple of the newest happenings get a toast.
+  const tickMarket = () => {
+    if (!session.signedIn) return;
+    marketTick()
+      .slice(0, 2)
+      .forEach((e) => toast(e.title));
+  };
+  setInterval(tickMarket, 3000);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') tickMarket();
+  });
+
   // Battles you post get an opponent a few seconds later, wherever you are.
   setInterval(async () => {
     if (!session.signedIn) return;
@@ -526,6 +556,7 @@ function boot() {
     });
   }, 2000);
   render(location.pathname === '/' ? '/packs' : location.pathname + location.search);
+  tickMarket();
 }
 
 boot();

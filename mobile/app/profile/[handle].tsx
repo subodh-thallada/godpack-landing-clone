@@ -10,6 +10,7 @@ import { packById, profileOf, pullsOf } from '../../src/data';
 import { ago, money } from '../../src/lib/format';
 import { bump } from '../../src/lib/haptics';
 import { toast } from '../../src/lib/toast';
+import { market, useMarket } from '../../src/store/market';
 import { isFollowing, toggleFollow, useSession } from '../../src/store/session';
 import { colors, radius, type } from '../../src/theme';
 
@@ -62,6 +63,8 @@ export default function CollectorProfile() {
         }}
         testID="follow-button"
       />
+      <Button label={`Trade with @${handle}`} icon="trade" variant="secondary" onPress={() => router.push({ pathname: '/trade/new', params: { with: handle } })} testID="collector-trade" />
+      <TheirListings handle={handle} />
       <Text style={type.h3}>Vaulted</Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
         {pulls.map((h) => {
@@ -83,7 +86,33 @@ export default function CollectorProfile() {
   );
 }
 
+// What they have up for sale on the Market right now.
+function TheirListings({ handle }: { handle: string }) {
+  const { a } = useMarket();
+  if (!a) return null;
+  const list = market.browse(a, { seller: handle });
+  if (!list.length) return null;
+  return (
+    <View style={{ gap: 10 }} testID="collector-listings">
+      <Text style={type.h3}>On the Market</Text>
+      {list.slice(0, 6).map((l) => (
+        <Press key={l.id} onPress={() => router.push(`/listing/${l.id}`)} style={styles.listing} accessibilityLabel={`${market.titleOf(l.items)}, ${money(l.price)}`}>
+          <Thumb id={l.items[0].id} graded={l.items[0].graded} tier={l.items[0].tier} width={30} glow={false} />
+          <Text style={{ flex: 1, color: colors.text, fontWeight: '700' }} numberOfLines={1}>
+            {market.titleOf(l.items)}
+          </Text>
+          <Text style={{ color: colors.money, fontWeight: '800', fontVariant: ['tabular-nums'] }}>
+            {l.kind === 'auction' ? 'Bid ' : ''}
+            {money(l.price)}
+          </Text>
+        </Press>
+      ))}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  listing: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderRadius: radius.md, backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.line },
   vip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, backgroundColor: colors.gold },
   stats: { flexDirection: 'row', paddingVertical: 14, borderRadius: radius.lg, backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.line },
   tile: { width: 96, alignItems: 'center', padding: 8, borderRadius: radius.md, backgroundColor: colors.panel, borderWidth: 1, borderColor: colors.line },

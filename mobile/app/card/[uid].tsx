@@ -108,6 +108,7 @@ export default function CardDetail() {
             />
             <Button label="Ship" icon="truck" onPress={() => setShipping(true)} style={{ flex: 1 }} testID="card-ship" />
           </View>
+          <Button label="List on the Market" icon="tag" variant="secondary" onPress={() => router.replace({ pathname: '/sell', params: { uids: item.uid } })} testID="card-list" />
         </>
       ) : (
         <Animated.View entering={fadeIn} style={{ gap: 12 }} testID="ship-form">

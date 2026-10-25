@@ -12,6 +12,7 @@ import { Thumb } from '../../src/components/Thumb';
 import { Button, Chip, Empty, Press, Stat, ViewHead } from '../../src/components/ui';
 import { money, plural } from '../../src/lib/format';
 import { success, tap } from '../../src/lib/haptics';
+import { go } from '../../src/lib/nav';
 import { toast } from '../../src/lib/toast';
 import { SELL_RATE, type VaultItem, cardOf, saleTimer, sell, useSession, vaultValue } from '../../src/store/session';
 import { colors, radius } from '../../src/theme';
@@ -21,6 +22,7 @@ type Sort = (typeof SORTS)[number];
 
 export default function Vault() {
   const s = useSession((x) => x.s);
+  const listed = (s?.market?.listings ?? []).filter((l) => l.mine && l.status === 'active').reduce((n, l) => n + l.items.length, 0);
   const { width: W } = useWindowDimensions();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'graded' | 'raw'>('all');
@@ -58,6 +60,13 @@ export default function Vault() {
   const header = (
     <View style={{ gap: 16, paddingBottom: 14 }}>
       <ViewHead title="Vault" sub="Sell or ship the cards you own. Cards you leave unclaimed auto-sell after 7 days." />
+      {listed ? (
+        <Press onPress={() => go('/market?tab=selling')} style={styles.listed} testID="vault-listed">
+          <Icon name="tag" size={16} color={colors.accentSoft} />
+          <Text style={{ flex: 1, color: colors.label2, fontWeight: '600', fontSize: 13 }}>{plural(listed, 'card')} listed on the Market</Text>
+          <Icon name="chevronRight" size={16} color={colors.faint} />
+        </Press>
+      ) : null}
       <View style={styles.stats}>
         <Stat label="Cards" value={s?.vault.length ?? 0} testID="vault-count" />
         <Stat label="Vault value" value={money(vaultValue(s))} money />
@@ -207,6 +216,7 @@ export default function Vault() {
 }
 
 const styles = StyleSheet.create({
+  listed: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44, paddingHorizontal: 14, borderRadius: radius.md, backgroundColor: 'rgba(121,84,237,0.1)', borderWidth: 1, borderColor: 'rgba(157,133,255,0.3)' },
   stats: { flexDirection: 'row', alignItems: 'center', gap: 28, padding: 18, borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line },
   confirm: { gap: 6, padding: 16, borderRadius: radius.md, backgroundColor: colors.dialog, borderWidth: 1, borderColor: colors.dialogLine },
   search: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 48, paddingHorizontal: 14, borderRadius: 12, backgroundColor: colors.surface2, borderWidth: 1, borderColor: colors.fieldLine },

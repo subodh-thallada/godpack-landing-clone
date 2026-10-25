@@ -3,6 +3,29 @@ const wrap = (body, { size = 20, fill = false, stroke = 1.9 } = {}) =>
   `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="${fill ? 'currentColor' : 'none'}" stroke="${fill ? 'none' : 'currentColor'}" stroke-width="${stroke}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${body}</svg>`;
 
 const paths = {
+  // Marketplace
+  market: {
+    stroke: 1.9,
+    body: '<path d="M3.5 9.5 5 4.5h14l1.5 5"/><path d="M3.5 9.5h17v.5a2.8 2.8 0 0 1-5.6 0 2.8 2.8 0 0 1-5.8 0 2.8 2.8 0 0 1-5.6 0v-.5Z"/><path d="M5 12.8v6.7h14v-6.7"/><path d="M10 19.5v-4h4v4"/>',
+  },
+  trade: {
+    stroke: 1.9,
+    body: '<path d="M7.5 4 4 7.5 7.5 11"/><path d="M4 7.5h12.5"/><path d="m16.5 13 3.5 3.5-3.5 3.5"/><path d="M20 16.5H7.5"/>',
+  },
+  gavel: {
+    stroke: 1.9,
+    body: '<path d="m9.5 7 5-5 5 5-5 5z"/><path d="M12 9.5 3.8 17.7a1.5 1.5 0 0 0 2.1 2.1L14 11.6"/><path d="M13 21h8"/>',
+  },
+  tag: {
+    stroke: 1.9,
+    body: '<path d="M3.5 12V4.5a1 1 0 0 1 1-1H12l8.5 8.5a1.4 1.4 0 0 1 0 2l-6.5 6.5a1.4 1.4 0 0 1-2 0L3.5 12Z"/><circle cx="8" cy="8" r="1.5"/>',
+  },
+  heartOn: {
+    fill: true,
+    stroke: 1.9,
+    body: '<path d="M12 20.3S3.3 15.6 3.3 9.3A4.7 4.7 0 0 1 12 6.6a4.7 4.7 0 0 1 8.7 2.7c0 6.3-8.7 11-8.7 11Z"/>',
+  },
+  trend: { stroke: 1.9, body: '<path d="m3.5 16.5 6-6 4 4 7-7"/><path d="M15 7.5h5.5V13"/>' },
   // Navigation
   packs: {
     fill: true,

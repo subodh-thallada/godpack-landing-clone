@@ -48,12 +48,12 @@ describe('recommend', () => {
 });
 
 describe('tour', () => {
-  it('has six stops covering wallet, packs and every tab', () => {
+  it('has seven stops covering wallet, packs and every tab', () => {
     const steps = tourSteps(a({ goals: ['battle'] }), 250, 1);
-    expect(steps.map((s) => s.target)).toEqual(['wallet', 'open', 'tab-battles', 'tab-vault', 'tab-feed', 'tab-rewards']);
+    expect(steps.map((s) => s.target)).toEqual(['wallet', 'open', 'tab-battles', 'tab-market', 'tab-vault', 'tab-feed', 'tab-rewards']);
     expect(steps[0].body).toContain('$250.00');
     expect(steps[2].title).toMatch(/like you asked/);
-    expect(steps[5].title).toMatch(/1 free pack/);
+    expect(steps[6].title).toMatch(/1 free pack/);
   });
 });
 

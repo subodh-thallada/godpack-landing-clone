@@ -8,6 +8,13 @@ routes; the landing page's Enter buttons, ribbon cards and footer links lead
 into the app. See [app/README.md](app/README.md) for the app and its demo
 account.
 
+Both the web app and the phone app in [`mobile/`](mobile/README.md) have a
+**Market**: buy cards other collectors list, make offers and take counters,
+bid in auctions (proxy bidding, buy now, reserves), list your own cards or
+bundles, and trade any way you like (1-for-1, 2-for-1, cards plus cash).
+Its rules live in one engine, `app/js/market/engine.js`, which the phone app
+runs too (`mobile/src/market/engine.js` is an exact copy, checked by a test).
+
 ## Run it
 
 ```bash
