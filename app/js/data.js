@@ -146,6 +146,61 @@ export const USERS = [
 
 export const user = (handle) => USERS.find((u) => u.handle === handle) || USERS[0];
 
+// Profile details for the invented collectors.
+const BIOS = {
+  nightglass: 'chasing gold stars since the first set',
+  tidewalker: 'only opens tide packs on full moons',
+  emberkid: 'trainer battles every night',
+  mossrock: 'safe mode enjoyer',
+  quietfox: 'shipping everything to canada',
+  pixelmint: 'arena regular',
+  orbit_ann: 'grail hunter · gem mint or bust',
+  coralbay: 'new here, be nice',
+  sundial: 'lowest wins specialist',
+  hexwren: 'daily check-in streak: 41',
+  lumenlark: 'gm',
+  vesper: 'community mod ✨',
+};
+
+export function profileOf(handle) {
+  const u = USERS.find((x) => x.handle === handle);
+  if (!u) return null;
+  const r = seeded(handle.split('').reduce((h, c) => h * 31 + c.charCodeAt(0), 7));
+  return {
+    ...u,
+    bio: BIOS[handle] || '',
+    followers: 4 + Math.floor(r() * 180),
+    following: 2 + Math.floor(r() * 90),
+    packsOpened: 20 + Math.floor(Math.pow(r(), 0.6) * 4000),
+  };
+}
+
+// A collector's own pulls, newest first: deterministic per handle, spread
+// over the last few days. Used for their collection and the Following feed.
+export function pullsOf(handle, count = 10) {
+  const r = seeded(handle.split('').reduce((h, c) => h * 17 + c.charCodeAt(0), 3));
+  const u = user(handle);
+  const out = [];
+  let minutesAgo = Math.floor(r() * 25);
+  for (let i = 0; i < count; i++) {
+    const pack = PACKS[Math.floor(Math.pow(r(), 1.5) * PACKS.length)];
+    const bands = pack.odds;
+    const [tier, lo, hi] = bands[Math.min(bands.length - 1, Math.floor(Math.pow(r(), 2.2) * bands.length))];
+    const value = Math.round((lo + (Math.min(hi, lo * 3) - lo) * Math.pow(r(), 1.8)) * 100) / 100;
+    out.push({
+      uid: `${handle}-${i}`,
+      card: CARDS[Math.floor(r() * CARDS.length)],
+      tier,
+      value,
+      user: u,
+      minutesAgo,
+      pack: pack.id,
+    });
+    minutesAgo += 20 + Math.floor(r() * 400);
+  }
+  return out;
+}
+
 // Seeded random so the demo looks the same on every load.
 export function seeded(seed) {
   let s = seed >>> 0 || 1;

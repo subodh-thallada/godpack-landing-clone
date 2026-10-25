@@ -124,7 +124,7 @@ export function mount(view, { scope, openAuth, toast }) {
                 <strong class="rw-value num${me ? ' is-set' : ''}">${me ? `${me.freePacks || 0}×` : '—'}</strong
                 ><span class="rw-label">Free packs</span>
               </div>
-              ${me ? raw(`<span class="rw-hint">${me.freePacks ? 'Open it from the Packs page' : 'Invite a friend to earn one'}</span>`) : raw('<button class="btn rw-gold" type="button" data-auth="signup">Sign up</button>')}
+              ${me ? raw(me.freePacks ? '<button class="btn rw-gold rw-open-free" type="button">Open free pack</button>' : '<span class="rw-hint">Invite a friend to earn one</span>') : raw('<button class="btn rw-gold" type="button" data-auth="signup">Sign up</button>')}
             </div>
             <div class="rw-stack" aria-hidden="true">
               ${raw(
@@ -156,7 +156,7 @@ export function mount(view, { scope, openAuth, toast }) {
                 ><input
                   type="text"
                   readonly
-                  ${raw(me ? `value="localhost/r/${me.handle}"` : 'placeholder="Log in to get your invite link"')}
+                  ${raw(me ? `value="${location.host}/r/${me.handle}"` : 'placeholder="Log in to get your invite link"')}
                 /><button type="button" class="rw-link__copy" data-copy="link">Copy</button></label
               >
               ${me ? raw(`<label class="rw-link rw-link--code"><span class="rw-link__tag">Code</span><input type="text" readonly value="${me.handle.toUpperCase()}"><button type="button" class="rw-link__copy" data-copy="code">Copy</button></label>`) : ''}
@@ -214,6 +214,30 @@ export function mount(view, { scope, openAuth, toast }) {
     tilt.style.transform = '';
   });
   scope.on(card, 'click', () => card.classList.toggle('is-flipped'));
+
+  // A free pack opens a Starter pack at no cost, with the full ceremony.
+  const openFree = $('.rw-open-free', view);
+  if (openFree)
+    scope.on(openFree, 'click', async () => {
+      const { ceremony } = await import('../ui/store.js');
+      const art = $('.rw-stack img:not(.is-parked)', view);
+      ceremony(PACKS[0], 1, art, toast, { free: true });
+    });
+  scope.add(
+    session.on(() => {
+      const s = session.state;
+      if (!s) return;
+      const v = $('.rw-tile .rw-value', view);
+      if (v) v.textContent = `${s.freePacks || 0}×`;
+      if (openFree && !s.freePacks)
+        openFree.replaceWith(
+          Object.assign(document.createElement('span'), {
+            className: 'rw-hint',
+            textContent: 'Invite a friend to earn one',
+          }),
+        );
+    }),
+  );
 
   const stack = $$('.rw-stack img', view);
   let top = 0;

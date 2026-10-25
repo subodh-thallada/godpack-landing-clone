@@ -3,8 +3,17 @@
 import { icon } from './ui/icons.js';
 import { html, raw, el, $, $$, Scope, store } from './ui/dom.js';
 import { mountChat } from './ui/chat.js';
-import { session } from './session.js';
-import { money } from './data.js';
+import {
+  session,
+  unread,
+  markRead,
+  openBattleCount,
+  maybeGainFollower,
+  lobbyBattles,
+  refreshLobby,
+  checkShipments,
+} from './session.js';
+import { money, USERS, PACKS } from './data.js';
 
 const ROUTES = {
   '/packs': () => import('./pages/packs.js'),
@@ -23,6 +32,8 @@ function resolve(path) {
   if (path === '/feed/following') return { route: '/feed', params: { tab: 'following' } };
   const slab = path.match(/^\/slab\/([\w-]+)$/);
   if (slab) return { route: '/vault', params: { card: slab[1] } };
+  const prof = path.match(/^\/profile\/([\w-]+)$/);
+  if (prof) return { route: '/profile', params: { handle: prof[1] } };
   return ROUTES[path] ? { route: path, params: {} } : { route: '/packs', params: {}, fallback: true };
 }
 
@@ -144,7 +155,7 @@ function wireShell(shell) {
 // Counts and the account button depend on the session.
 function paintSide(shell) {
   const s = session.state;
-  const counts = { '/battles': s ? 1 : 0, '/vault': s ? s.vault.length : null };
+  const counts = { '/battles': s ? lobbyBattles().length + openBattleCount() : 0, '/vault': s ? s.vault.length : null };
   $$('.nav__item[data-nav]', shell).forEach((a) => {
     const href = a.dataset.nav;
     const c = $('.nav__count', a);
@@ -171,13 +182,13 @@ function paintSide(shell) {
     : '';
 }
 
-function markNav(shell, path) {
+function markNav(shell, path, params = {}) {
   $$('.nav__item[data-link]', shell).forEach((a) => {
     if (a.getAttribute('href') === path) a.setAttribute('aria-current', 'page');
     else a.removeAttribute('aria-current');
   });
   const acct = $('.account', shell);
-  if (acct) acct.toggleAttribute('aria-current', path === '/profile');
+  if (acct) acct.toggleAttribute('aria-current', path === '/profile' && !params.handle);
   const idx = PRIMARY.findIndex(([href]) => href === path);
   const marker = $('.nav__marker', shell);
   marker.hidden = idx < 0;
@@ -218,7 +229,7 @@ function accountControls() {
   return html`<div class="acct">
     <div class="notif">
       <button class="notif__bell" type="button" aria-label="Notifications" aria-expanded="false">
-        ${raw(icon('bell', { size: 20 }))}
+        ${raw(icon('bell', { size: 20 }))}<span class="notif__count num" ${unread() ? '' : ' hidden'}>${unread()}</span>
       </button>
     </div>
     <a
@@ -245,6 +256,14 @@ export function viewHead(title, sub, { avatar } = {}) {
   </header>`;
 }
 
+const since = (t) => {
+  const m = Math.floor((Date.now() - t) / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  return h < 24 ? `${h}h ago` : `${Math.floor(h / 24)}d ago`;
+};
+
 function wireNotifications(root) {
   const bell = $('.notif__bell', root);
   if (!bell) return;
@@ -267,13 +286,52 @@ function wireNotifications(root) {
     const items = session.state.notifications || [];
     panel = el(
       html`<div class="notif__panel" role="dialog" aria-label="Notifications">
-        <h2>Notifications</h2>
-        ${items.length ? raw(items.map((n) => html`<div class="notif__item"><strong>${n.title}</strong><span>${n.body}</span></div>`).join('')) : raw(`<div class="notif__empty">${icon('bell', { size: 24 })}<strong>No notifications yet</strong><span>Gifts, mentions and VIP upgrades will show up here.</span></div>`)}
+        <div class="notif__head">
+          <h2>Notifications</h2>
+          ${items.some((n) => !n.read) ? raw('<button class="notif__all" type="button">Mark all read</button>') : ''}
+        </div>
+        ${
+          items.length
+            ? raw(
+                `<ul class="notif__list">${items
+                  .map(
+                    (n) =>
+                      html`<li>
+                        <a
+                          class="notif__item${n.read ? '' : ' is-unread'}"
+                          href="${n.href || '/packs'}"
+                          data-id="${n.id}"
+                        >
+                          <strong>${n.title}</strong><span>${n.body}</span><time>${since(n.at)}</time>
+                        </a>
+                      </li>`,
+                  )
+                  .join('')}</ul>`,
+              )
+            : raw(
+                `<div class="notif__empty">${icon('bell', { size: 24 })}<strong>No notifications yet</strong><span>Gifts, mentions and VIP upgrades will show up here.</span></div>`,
+              )
+        }
       </div>`,
     );
     bell.parentElement.append(panel);
     bell.setAttribute('aria-expanded', 'true');
     bell.classList.add('is-open');
+    panel.addEventListener('click', (ev) => {
+      if (ev.target.closest('.notif__all')) {
+        ev.stopPropagation();
+        markRead();
+        panel.querySelectorAll('.is-unread').forEach((n) => n.classList.remove('is-unread'));
+        ev.target.remove();
+        return;
+      }
+      const item = ev.target.closest('.notif__item');
+      if (!item) return;
+      ev.preventDefault();
+      markRead(item.dataset.id);
+      close();
+      navigate(item.getAttribute('href'));
+    });
   });
   const onDoc = (e) => {
     if (panel && !e.target.closest('.notif')) close();
@@ -325,7 +383,7 @@ async function render(path, { push = false } = {}) {
   const full = resolved.fallback ? '/packs' : path;
   if (push) history.pushState({}, '', full);
   else if (location.pathname + location.search !== full) history.replaceState({}, '', full);
-  markNav(shellEl, route);
+  markNav(shellEl, route, params);
 
   const mod = await ROUTES[route]();
   if (current) current.scope.dispose();
@@ -334,7 +392,7 @@ async function render(path, { push = false } = {}) {
   const scope = new Scope();
   scroller.replaceChildren(view);
   scroller.scrollTop = 0;
-  current = { path: full, route, scope };
+  current = { path: full, route, params, scope };
   document.title = `${mod.title || 'Packs'} · Godpack app (unofficial recreation)`;
   mod.mount(view, { scope, navigate, toast, openAuth, params, session });
   const unwire = wireNotifications(view);
@@ -359,6 +417,7 @@ export function navigate(path, { replace = false } = {}) {
 }
 
 function boot() {
+  session.boot();
   const app = $('#app');
   shellEl = buildShell();
   app.replaceChildren(shellEl);
@@ -371,7 +430,7 @@ function boot() {
   let wasIn = session.signedIn;
   session.on(() => {
     paintSide(shellEl);
-    markNav(shellEl, current ? current.route : '/packs');
+    markNav(shellEl, current ? current.route : '/packs', current ? current.params : {});
     if (session.signedIn !== wasIn) {
       wasIn = session.signedIn;
       render(location.pathname + location.search);
@@ -379,6 +438,17 @@ function boot() {
     }
     const slot = $('.view-title-row > .acct', shellEl);
     if (slot) {
+      const count = $('.notif__count', slot);
+      const n = unread();
+      if (count) {
+        count.hidden = !n;
+        if (count.textContent !== String(n) && n) {
+          count.textContent = n;
+          count.classList.remove('is-bump');
+          void count.offsetWidth;
+          count.classList.add('is-bump');
+        }
+      }
       const wallet = $('.wallet', slot);
       const s = session.state;
       wallet.classList.toggle('is-empty', s.balance <= 0);
@@ -415,11 +485,45 @@ function boot() {
   });
   window.addEventListener('popstate', () => render(location.pathname + location.search));
 
-  // ?demo=1 signs straight into the demo account (handy for screenshots).
+  // ?demo=1 signs back into the demo after a log out; ?signout=1 logs out.
   const qs = new URLSearchParams(location.search);
   if (qs.has('demo') && !session.signedIn) session.signIn();
   if (qs.has('signout') && session.signedIn) session.signOut();
   wasIn = session.signedIn;
+
+  // The world keeps moving while you browse: open battles come and go and,
+  // after a while, someone follows you.
+  setInterval(() => session.signedIn && refreshLobby(), 20000);
+  setInterval(() => session.signedIn && checkShipments(), 5000);
+  setTimeout(() => session.signedIn && maybeGainFollower(), 45000);
+
+  // Battles you post get an opponent a few seconds later, wherever you are.
+  setInterval(async () => {
+    if (!session.signedIn) return;
+    if (
+      document.querySelector('.overlay, .auth') ||
+      !document.querySelector('.demo-layer[hidden], body:not(:has(.demo-layer))')
+    )
+      return;
+    const due = session.state.battles.find((b) => b.status === 'open' && Date.now() - b.at > 7000);
+    if (!due) return;
+    const opponent = USERS[Math.floor(Math.random() * USERS.length)].handle;
+    session.update((st) => {
+      const b = st.battles.find((x) => x.id === due.id);
+      b.status = 'live';
+      b.opponent = opponent;
+    });
+    toast(`@${opponent} joined your battle`);
+    const { replayBattle } = await import('./pages/feed.js');
+    replayBattle({
+      id: due.id,
+      pack: PACKS.find((p) => p.id === due.pack),
+      each: due.each,
+      lowest: due.lowest,
+      mine: true,
+      opponent,
+    });
+  }, 2000);
   render(location.pathname === '/' ? '/packs' : location.pathname + location.search);
 }
 

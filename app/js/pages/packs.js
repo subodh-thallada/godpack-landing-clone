@@ -8,6 +8,7 @@ import { openInspect } from '../ui/dialogs.js';
 import { belt } from '../ui/belt.js';
 import { storeMarkup, wireStore, initialPack } from '../ui/store.js';
 import { store } from '../ui/dom.js';
+import { myPulls } from '../session.js';
 
 export const title = 'Packs';
 
@@ -27,7 +28,11 @@ export function hitCard(h, i) {
       <span class="hit__info">
         <span class="hit__value num">${money(h.value, { compact: true })}</span>
         <span class="hit__name">${h.card.name}</span>
-        <a class="hit__who" href="/feed" data-link aria-label="View @${h.user.handle}'s profile"
+        <a
+          class="hit__who"
+          href="${h.user.self ? '/profile' : `/profile/${h.user.handle}`}"
+          data-link
+          aria-label="View @${h.user.handle}'s profile"
           ><span class="avatar" style="background:${h.user.color}">${h.user.handle[0].toUpperCase()}</span
           ><span>@${h.user.handle}</span></a
         >
@@ -84,7 +89,10 @@ export function mount(view, { scope, openAuth, navigate, toast }) {
       ).join('');
       return;
     }
-    const hits = pullsFor(PACKS[index], 12, current && current.safe ? 17 : 7);
+    // Your own pulls of at least the pack price lead the belt.
+    const pack = PACKS[index];
+    const mine = myPulls().filter((p) => p.pack === pack.id && p.value >= pack.price);
+    const hits = [...mine, ...pullsFor(pack, 12, current && current.safe ? 17 : 7)].slice(0, 14);
     hitsTrack.innerHTML = hits.map(hitCard).join('');
     [...hitsTrack.children].forEach((li, i) => hitData.set(li, hits[i]));
     hitsTrack.classList.remove('is-in');

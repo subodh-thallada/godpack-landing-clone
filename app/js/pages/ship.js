@@ -1,9 +1,11 @@
-// Shipping (signed out): an empty shipments panel and the shipping details
-// card with two expandable sections.
+// Shipping. Signed out: an empty shipments panel. Signed in (demo): your
+// shipments, each moving through Requested → Packed → Shipped → Delivered
+// with a tracking number. The shipping details card sits alongside.
 import { icon } from '../ui/icons.js';
-import { html, raw, $$ } from '../ui/dom.js';
+import { html, raw, $, $$ } from '../ui/dom.js';
 import { viewHead } from '../main.js';
-import { session } from '../session.js';
+import { cardArt, slabArt, money } from '../data.js';
+import { session, cardOf, shipmentStage, STAGES } from '../session.js';
 
 export const title = 'Shipping';
 
@@ -18,20 +20,54 @@ const MORE = [
   ],
 ];
 
+const when = (t) =>
+  new Date(t).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+
+function shipmentRow(sh) {
+  const c = cardOf(sh.item);
+  const stage = shipmentStage(sh);
+  const a = sh.address;
+  return html`<li class="shipment surface" data-id="${sh.id}">
+    <span class="thumb${sh.item.graded ? ' is-slab' : ''} shipment__art"
+      ><img src="${sh.item.graded ? slabArt(c.id) : cardArt(c.id, 'small')}" alt=""
+    /></span>
+    <div class="shipment__main">
+      <div class="shipment__top">
+        <strong>${c.name}</strong>
+        <span class="shipment__status is-${STAGES[stage].toLowerCase()}">${STAGES[stage]}</span>
+      </div>
+      <span class="shipment__meta"
+        >${money(sh.item.value)} · Requested ${when(sh.at)} · ${money(sh.cost, { compact: true })} shipping</span
+      >
+      <span class="shipment__meta"
+        >To ${a.name}, ${a.city}, ${a.region} ${a.postal}, ${a.country === 'CA' ? 'Canada' : 'United States'}</span
+      >
+      <ol class="track" aria-label="Shipment progress">
+        ${raw(STAGES.map((s, i) => `<li class="${i <= stage ? 'is-done' : ''}${i === stage ? ' is-current' : ''}"><span></span>${s}</li>`).join(''))}
+      </ol>
+      <span class="shipment__tracking num">Tracking ${sh.tracking}</span>
+    </div>
+  </li>`;
+}
+
 export function mount(view, { scope }) {
   const me = session.state;
+  const list = me ? me.shipments : [];
   const main = me
-    ? html`<section class="surface ship__main">
-        <h2>No shipments yet</h2>
-        <p>Open a card in your Vault and choose Ship to get started.</p>
-        <a class="btn btn--secondary" href="/vault" data-link style="min-width:0">View Vault</a>
-      </section>`
+    ? list.length
+      ? html`<ul class="shipments"></ul>`
+      : html`<section class="surface ship__main">
+          <h2>No shipments yet</h2>
+          <p>Open a card in your Vault and choose Ship to get started.</p>
+          <a class="btn btn--secondary" href="/vault" data-link style="min-width:0">View Vault</a>
+        </section>`
     : html`<section class="surface ship__main">
         <h2>Your shipments</h2>
         <p>Log in to send a card from your Vault and follow its delivery.</p>
         <button class="btn btn--primary" type="button" data-auth="login">Ship a card</button>
       </section>`;
-  view.innerHTML = html` ${raw(viewHead(me ? 'Shipments' : 'Shipping', me ? '0 shipments' : ''))}
+  const count = list.length;
+  view.innerHTML = html` ${raw(viewHead(me ? 'Shipments' : 'Shipping', me ? `${count} ${count === 1 ? 'shipment' : 'shipments'}` : ''))}
     <div class="ship">
       ${raw(main)}
       <aside class="panel ship__info">
@@ -67,6 +103,14 @@ export function mount(view, { scope }) {
         >
       </aside>
     </div>`;
+
+  const ul = $('.shipments', view);
+  const paint = () => {
+    if (ul) ul.innerHTML = session.state.shipments.map(shipmentRow).join('');
+  };
+  paint();
+  // Shipments move along while you watch.
+  if (ul) scope.timer(paint, 5000);
 
   // Only one section open at a time.
   const items = $$('.ship__more', view);

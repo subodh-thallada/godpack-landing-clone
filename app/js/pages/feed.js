@@ -1,11 +1,12 @@
-// Feed: All (a timeline of pulls), Following (needs an account), Battles
-// (finished battles with replays) and Leaderboard (best pulls / volume).
+// Feed: All (everyone's pulls, yours included), Following (pulls from the
+// collectors you follow), Battles (finished battles with replays) and
+// Leaderboard (best pulls / volume). @names link to profiles.
 import { icon } from '../ui/icons.js';
 import { html, raw, el, $, $$, reducedMotion } from '../ui/dom.js';
 import { viewHead } from '../main.js';
-import { PACKS, CARDS, USERS, pullsFor, cardArt, slabArt, money, seeded } from '../data.js';
+import { PACKS, CARDS, USERS, pullsFor, pullsOf, profileOf, cardArt, slabArt, money, seeded, user } from '../data.js';
 import { openInspect, openDialog } from '../ui/dialogs.js';
-import { session } from '../session.js';
+import { session, settleBattle, myPulls, toggleFollow, postChat } from '../session.js';
 
 export const title = 'Feed';
 
@@ -14,12 +15,24 @@ const short = (m) => (m < 1 ? 'just now' : m < 60 ? `${m}m ago` : `${Math.floor(
 const avatar = (u, size = 24) =>
   `<span class="avatar" style="width:${size}px;height:${size}px;background:${u.color}">${u.handle[0].toUpperCase()}</span>`;
 
-// A mixed timeline across all packs, newest first.
+export const profileHref = (u) => (u.self ? '/profile' : `/profile/${u.handle}`);
+
+// A mixed timeline across all packs plus your own pulls, newest first.
 function timeline() {
   const all = PACKS.flatMap((p, i) =>
     pullsFor(p, 8, 40 + i * 13).map((h) => ({ ...h, minutesAgo: h.minutesAgo * 2 + i })),
   );
-  return all.sort((a, b) => a.minutesAgo - b.minutesAgo).slice(0, 24);
+  return [...myPulls(), ...all].sort((a, b) => a.minutesAgo - b.minutesAgo).slice(0, 30);
+}
+
+// Pulls from the collectors you follow, newest first.
+function followingTimeline() {
+  const s = session.state;
+  if (!s) return [];
+  return s.following
+    .flatMap((h) => pullsOf(h, 6))
+    .sort((a, b) => a.minutesAgo - b.minutesAgo)
+    .slice(0, 30);
 }
 
 function post(h, latest) {
@@ -33,7 +46,9 @@ function post(h, latest) {
         /></span>
       </button>
       <div class="post__meta">
-        <a class="post__who" href="/feed" data-link>${raw(avatar(h.user))}<span>@${h.user.handle}</span></a>
+        <a class="post__who" href="${profileHref(h.user)}" data-link
+          >${raw(avatar(h.user))}<span>@${h.user.handle}</span>${h.user.self ? raw('<span class="post__you">You</span>') : ''}</a
+        >
         <span class="post__verb">pulled</span>
         <div class="post__when">
           ${latest ? raw('<span class="post__badge">Latest pull</span>') : ''}
@@ -71,9 +86,13 @@ function battles() {
 function battleRow(bt, i) {
   return html`<li style="--n:${i}">
     <div class="bt">
-      <span class="bt__side">${raw(avatar(bt.a, 32))}<span>@${bt.a.handle}</span></span>
+      <a class="bt__side" href="/profile/${bt.a.handle}" data-link
+        >${raw(avatar(bt.a, 32))}<span>@${bt.a.handle}</span></a
+      >
       <span class="bt__vs">vs</span>
-      <span class="bt__side">${raw(avatar(bt.b, 32))}<span>@${bt.b.handle}</span></span>
+      <a class="bt__side" href="/profile/${bt.b.handle}" data-link
+        >${raw(avatar(bt.b, 32))}<span>@${bt.b.handle}</span></a
+      >
       <span class="bt__info"
         ><strong
           >${bt.pack.name} · ${bt.each} pack${bt.each > 1 ? 's' : ''} each${bt.lowest ? ' · Lowest wins' : ''}</strong
@@ -107,8 +126,8 @@ function leaderRow(l, i, mode) {
       : `<span class="lb__score"><strong class="num">${l.mult}×</strong><span class="label-caps">Card / pack</span></span><span class="thumb lb__card"><img src="${cardArt(l.card.id, 'small')}" alt="" loading="lazy"></span>`;
   return html`<li style="--n:${i}">
     <div class="lb">
-      ${raw(medal)}${raw(avatar(l.u, 36))}<span class="lb__who"
-        ><strong>@${l.u.handle}</strong><span>${mode === 'volume' ? 'Packs opened' : l.card.name}</span></span
+      ${raw(medal)}${raw(avatar(l.u, 36))}<a class="lb__who" href="/profile/${l.u.handle}" data-link
+        ><strong>@${l.u.handle}</strong><span>${mode === 'volume' ? 'Packs opened' : l.card.name}</span></a
       >${raw(right)}
     </div>
   </li>`;
@@ -148,13 +167,18 @@ export function mount(view, { scope, openAuth, toast, params: routeParams = {} }
         ${raw(data.map((h, i) => post(h, i === 0)).join(''))}
       </ol>
     </section>`;
-    const list = $('.posts', panel);
+    wirePosts($('.posts', panel), () => data);
+  }
+
+  // Inspect a pull, or share it (copy a link or post it to Global Chat).
+  function wirePosts(list, items) {
     list.addEventListener('click', (e) => {
       const li = e.target.closest('li');
       if (!li) return;
-      const h = data[[...list.children].indexOf(li)];
-      if (e.target.closest('.post__share')) {
-        toast('Link copied');
+      const h = items()[[...list.children].indexOf(li)];
+      const share = e.target.closest('.post__share');
+      if (share) {
+        shareMenu(share, h, { toast, openAuth });
         return;
       }
       if (e.target.closest('.post__art')) openInspect(h);
@@ -217,12 +241,49 @@ export function mount(view, { scope, openAuth, toast, params: routeParams = {} }
   }
 
   function showFollowing() {
-    panel.innerHTML = html`<div class="empty surface feed-empty">
-      ${raw(icon('feed', { size: 28 }))}
-      <h3>No activity from people you follow yet</h3>
-      <p>Follow collectors from their profiles and their pulls will show up here.</p>
-    </div>`;
+    const items = followingTimeline();
+    const s = session.state;
+    const suggest = USERS.filter((u) => !s.following.includes(u.handle)).slice(0, 5);
+    const suggestions = html`<section class="suggest surface">
+      <h3>Collectors to follow</h3>
+      <ul>
+        ${raw(
+          suggest
+            .map((u) => {
+              const p = profileOf(u.handle);
+              return `<li><a class="suggest__who" href="/profile/${u.handle}" data-link>${avatar(u, 36)}<span><strong>@${u.handle}</strong><span>${p.bio}</span></span></a><button class="btn btn--primary btn--sm suggest__follow" type="button" data-h="${u.handle}">Follow</button></li>`;
+            })
+            .join(''),
+        )}
+      </ul>
+    </section>`;
+    const count = s.following.length;
+    panel.innerHTML = items.length
+      ? html`<section class="day">
+            <h2 class="day__label">Following ${count} ${count === 1 ? 'collector' : 'collectors'}</h2>
+            <ol class="posts">
+              ${raw(items.map((h, i) => post(h, i === 0)).join(''))}
+            </ol>
+          </section>
+          ${raw(suggest.length ? suggestions : '')}`
+      : html`<div class="empty surface feed-empty">
+            ${raw(icon('feed', { size: 28 }))}
+            <h3>No activity from people you follow yet</h3>
+            <p>Follow collectors from their profiles and their pulls will show up here.</p>
+          </div>
+          ${raw(suggestions)}`;
+    const list = $('.posts', panel);
+    if (list) wirePosts(list, () => items);
   }
+
+  // "Collectors to follow" buttons (Following tab only).
+  scope.on(panel, 'click', (e) => {
+    const b = e.target.closest('.suggest__follow');
+    if (!b || tab !== 1) return;
+    toggleFollow(b.dataset.h);
+    toast(`Following @${b.dataset.h}`);
+    showFollowing();
+  });
 
   function select(i, push = true) {
     if (i === 1 && !session.signedIn) {
@@ -284,18 +345,56 @@ export function mount(view, { scope, openAuth, toast, params: routeParams = {} }
   }
 }
 
+// A small popover under a post's share button.
+export function shareMenu(anchor, h, { toast, openAuth }) {
+  document.querySelectorAll('.share-menu').forEach((m) => m.remove());
+  const menu = el(
+    html`<div class="share-menu" role="menu">
+      <button type="button" role="menuitem" data-share="link">${raw(icon('copy', { size: 16 }))}Copy link</button>
+      <button type="button" role="menuitem" data-share="chat">
+        ${raw(icon('chat', { size: 16 }))}Share to Global Chat
+      </button>
+    </div>`,
+  );
+  document.body.append(menu);
+  const r = anchor.getBoundingClientRect();
+  menu.style.top = `${r.bottom + 6}px`;
+  menu.style.left = `${Math.max(8, r.right - menu.offsetWidth)}px`;
+  const outside = (e) => {
+    if (!menu.contains(e.target)) close();
+  };
+  const close = () => {
+    menu.remove();
+    document.removeEventListener('pointerdown', outside, true);
+  };
+  setTimeout(() => document.addEventListener('pointerdown', outside, true));
+  menu.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-share]');
+    if (!b) return;
+    close();
+    if (b.dataset.share === 'link') {
+      if (navigator.clipboard) navigator.clipboard.writeText(`${location.origin}/feed`).catch(() => {});
+      toast('Link copied');
+      return;
+    }
+    if (!session.signedIn) return openAuth('login');
+    postChat({ type: 'pull', card: h.card.id, value: h.value, pack: h.pack, by: h.user.handle });
+    toast('Shared to Global Chat');
+  });
+}
+
 // Battle replay: both sides' cards turn over one by one, totals count up,
 // and the winner is crowned. With `mine`, side A is the demo account and a
 // win moves every card into its vault.
 export function replayBattle(bt) {
   if (bt.mine) {
     const me = session.state;
-    const others = USERS.filter((u) => u.handle !== 'nightglass');
+    const opp = bt.opponent ? user(bt.opponent) : USERS[Math.floor(Math.random() * USERS.length)];
     bt = {
       ...bt,
       a: { handle: me.handle, color: me.color },
-      b: others[Math.floor(Math.random() * others.length)],
-      lowest: false,
+      b: opp,
+      lowest: !!bt.lowest,
       seed: Math.floor(Math.random() * 1e6),
     };
   }
@@ -351,18 +450,7 @@ export function replayBattle(bt) {
   setTimeout(() => {
     node.classList.add('is-done');
     if (!bt.mine) return;
-    if (aWins) {
-      const won = [...A, ...B].map((c, i) => ({
-        uid: 'b' + Date.now().toString(36) + i,
-        id: c.card.id,
-        value: Math.round(c.value * 100) / 100,
-        tier: 'core',
-        at: Date.now(),
-        graded: bt.pack.slabs,
-      }));
-      session.update((s) => {
-        s.vault = [...won, ...s.vault];
-      });
-    }
+    const cards = [...A, ...B].map((c) => ({ ...c, graded: bt.pack.slabs, pack: bt.pack.id }));
+    settleBattle(bt.id, { won: aWins, cards, opponent: bt.b.handle });
   }, done + 200);
 }

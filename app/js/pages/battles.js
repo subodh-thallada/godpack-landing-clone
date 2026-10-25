@@ -1,66 +1,88 @@
 // Battles: the store block in battle mode (seats, opponent, Lowest wins),
-// then the list of open battles with tier filters. Signed in, one demo
-// battle is open to join, with a live countdown.
+// then Open battles — other collectors' battles you can join and any
+// battle you've posted (waiting for an opponent, with Cancel).
 import { icon } from '../ui/icons.js';
 import { html, raw, $, $$ } from '../ui/dom.js';
-import { viewHead } from '../main.js';
+import { viewHead, avatarOf } from '../main.js';
 import { storeMarkup, wireStore, initialPack } from '../ui/store.js';
-import { PACKS, packArt, user } from '../data.js';
-import { session } from '../session.js';
+import { PACKS, packArt, user, money } from '../data.js';
+import { session, lobbyBattles, joinLobby, cancelBattle } from '../session.js';
 
 export const title = 'Battles';
 
 const EMPTY = 'No battles are open right now. Start one and it stays listed here for 15 minutes.';
+const OPEN_FOR = 15 * 60000;
+const clock = (ms) => {
+  const left = Math.max(0, Math.ceil(ms / 1000));
+  return `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
+};
 
-function openRow(b, left) {
-  const m = Math.floor(left / 60),
-    sec = String(left % 60).padStart(2, '0');
-  return html`<li class="ob surface" data-pack="${b.pack.id}">
+function rows() {
+  const s = session.state;
+  if (!s) return [];
+  const mine = s.battles
+    .filter((b) => b.status === 'open')
+    .map((b) => ({
+      ...b,
+      mine: true,
+      host: s.handle,
+      ends: b.at + OPEN_FOR,
+      pack: PACKS.find((p) => p.id === b.pack),
+    }));
+  const others = lobbyBattles().map((b) => ({ ...b, pack: PACKS.find((p) => p.id === b.pack) }));
+  return [...mine, ...others];
+}
+
+function row(b) {
+  const me = session.state;
+  const host = b.mine ? { handle: me.handle, color: me.color } : user(b.host);
+  return html`<li class="ob surface${b.mine ? ' is-mine' : ''}" data-id="${b.id}" data-pack="${b.pack.name}">
     <div class="ob__host">
-      <span class="avatar" style="width:40px;height:40px;font-size:16px;background:${b.host.color}"
-        >${b.host.handle[0].toUpperCase()}</span
-      >
-      <div><a class="ob__name" href="/feed" data-link>@${b.host.handle}</a><span class="num">${b.record}</span></div>
+      ${raw(avatarOf(host, 40))}
+      <div>
+        ${
+          b.mine
+            ? raw(`<span class="ob__name">You</span><span class="num">Waiting for an opponent…</span>`)
+            : raw(
+                `<a class="ob__name" href="/profile/${host.handle}" data-link>@${host.handle}</a><span class="num">${b.record}</span>`,
+              )
+        }
+      </div>
     </div>
     <div class="ob__pack">
       <img src="${packArt(b.pack, 240)}" alt="" width="34" height="48" />
       <div>
-        <strong>${b.pack.name} × ${b.each}</strong
-        ><span class="num">$${b.pack.price * b.each} entry · winner takes ${b.each * 2} cards</span>
+        <strong>${b.pack.name} × ${b.each}${b.lowest ? ' · Lowest wins' : ''}</strong
+        ><span class="num"
+          >${money(b.pack.price * b.each, { compact: true })} entry · winner takes ${b.each * 2} cards</span
+        >
       </div>
     </div>
-    <span class="ob__time num"><span class="ob__clock">${m}:${sec}</span>${raw(icon('clock', { size: 15 }))}</span>
-    <button class="btn btn--primary ob__join" type="button">Join</button>
+    <span class="ob__time num"
+      ><span class="ob__clock">${clock(b.ends - Date.now())}</span>${raw(icon('clock', { size: 15 }))}</span
+    >
+    ${
+      b.mine
+        ? raw('<button class="btn btn--secondary ob__cancel" type="button">Cancel</button>')
+        : raw('<button class="btn btn--primary ob__join" type="button">Join</button>')
+    }
   </li>`;
 }
 
 export function mount(view, { scope, openAuth, navigate, toast }) {
-  const signedIn = session.signedIn;
-  const open = signedIn
-    ? [
-        {
-          host: user('pixelmint'),
-          record: '0–0',
-          pack: PACKS[1],
-          each: 10,
-          ends: Date.now() + 12 * 60 * 1000 + 39 * 1000,
-        },
-      ]
-    : [];
   view.innerHTML = html` ${raw(viewHead('Battles', 'Two collectors open the same pack. The bigger total takes every card — or the smaller one, in Lowest wins battles.'))}
     ${raw(storeMarkup({ battle: true, index: initialPack(true) }))}
     <section class="open-battles">
       <div class="open-battles__head">
         <h2>
-          ${raw(icon('battles', { size: 20 }))}<span>Open battles</span
-          ><span class="open-battles__count num">${open.length} open</span>
+          ${raw(icon('battles', { size: 20 }))}<span>Open battles</span><span class="open-battles__count num"></span>
         </h2>
         <div class="open-battles__chips" role="group" aria-label="Filter by pack">
           ${raw(['All', 'Starter', 'Trainer', 'Arena', 'Master'].map((t, i) => `<button class="chip${i === 0 ? ' is-on' : ''}" type="button" aria-pressed="${i === 0}">${t}</button>`).join(''))}
         </div>
       </div>
       <ul class="obs"></ul>
-      <div class="open-battles__empty" ${open.length ? ' hidden' : ''}><p>${EMPTY}</p></div>
+      <div class="open-battles__empty"><p>${EMPTY}</p></div>
     </section>`;
 
   wireStore(view, { scope, openAuth, battle: true, navigate, toast });
@@ -68,25 +90,29 @@ export function mount(view, { scope, openAuth, navigate, toast }) {
   const list = $('.obs', view);
   const empty = $('.open-battles__empty', view);
   let filter = 'All';
+  let shown = [];
   const paint = () => {
-    const now = Date.now();
-    const shown = open.filter((b) => b.ends > now && (filter === 'All' || b.pack.name === filter));
-    list.innerHTML = shown.map((b) => openRow(b, Math.ceil((b.ends - now) / 1000))).join('');
+    const all = rows();
+    shown = all.filter((b) => filter === 'All' || b.pack.name === filter);
+    list.innerHTML = shown.map(row).join('');
     empty.hidden = shown.length > 0;
     $('p', empty).textContent = filter === 'All' ? EMPTY : `No ${filter} battles are open right now.`;
-    $('.open-battles__count', view).textContent = `${open.filter((b) => b.ends > now).length} open`;
+    $('.open-battles__count', view).textContent = `${all.length} open`;
   };
   paint();
-  // Tick the countdowns without rebuilding the rows.
+  scope.add(session.on(paint));
+
+  // Tick the countdowns in place; repaint when one runs out.
   scope.timer(() => {
-    const now = Date.now();
-    $$('.ob', list).forEach((row, i) => {
-      const b = open.filter((x) => filter === 'All' || x.pack.name === filter)[i];
+    let expired = false;
+    $$('.ob', list).forEach((li, i) => {
+      const b = shown[i];
       if (!b) return;
-      const left = Math.max(0, Math.ceil((b.ends - now) / 1000));
-      $('.ob__clock', row).textContent = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
-      if (!left) paint();
+      const left = b.ends - Date.now();
+      $('.ob__clock', li).textContent = clock(left);
+      if (left <= 0) expired = true;
     });
+    if (expired) paint();
   }, 1000);
 
   const chips = $$('.open-battles__chips .chip', view);
@@ -102,25 +128,28 @@ export function mount(view, { scope, openAuth, navigate, toast }) {
   );
 
   scope.on(list, 'click', async (e) => {
+    const li = e.target.closest('.ob');
+    if (!li) return;
+    if (e.target.closest('.ob__cancel')) {
+      cancelBattle(li.dataset.id);
+      toast('Battle cancelled — entry refunded');
+      return;
+    }
     if (!e.target.closest('.ob__join')) return;
-    const b = open[0];
     const me = session.state;
     if (!me) {
       openAuth('login');
       return;
     }
+    const b = shown.find((x) => x.id === li.dataset.id);
     const entry = b.pack.price * b.each;
     if (me.balance < entry) {
-      toast(`Add ${'$' + (entry - me.balance).toFixed(2).replace(/\.00$/, '')} to join this battle`);
+      toast(`Add ${money(entry - me.balance)} to join this battle`);
       navigate('/add-funds');
       return;
     }
-    session.update((s) => {
-      s.balance = Math.round((s.balance - entry) * 100) / 100;
-    });
+    const joined = joinLobby(b.id);
     const { replayBattle } = await import('./feed.js');
-    replayBattle({ pack: b.pack, each: b.each, mine: true });
-    open.splice(0, 1);
-    paint();
+    replayBattle({ id: joined.id, pack: joined.pack, each: joined.each, mine: true, opponent: joined.host });
   });
 }

@@ -39,22 +39,43 @@ the sign-in screen, toasts, page-enter animations. Respects
 
 ## Demo account (signed-in pages)
 
-Press **Log in → Use the demo account** (or open `/packs?demo=1`) to see the
-signed-in app. The demo account lives only in this browser's localStorage;
-**Log out** on the profile clears it (or open `/packs?signout=1`).
+The app opens **already logged in** to a demo account with **$250 of pretend
+credit** and one free pack. It lives only in this browser's localStorage.
+**Log out** on your profile keeps you logged out (even after a reload) until
+you log back in with **Log in → Use the demo account**. `/packs?signout=1`
+and `/packs?demo=1` do the same from the address bar, and **Edit profile →
+Reset demo data** starts over.
 
-Signed in, you get: the notifications bell and glowing wallet pill, sidebar
-counts and account button, a Vault with auto-sell timers, select-and-sell
-tray and card modal (`/slab/:id`), a joinable battle with a live countdown,
-Rewards progress, daily check-ins and invite link/code, the "Shipments"
-page, and a **Profile** (`/profile`) with a portfolio chart (range chips,
-hover crosshair), pack activity and the vaulted grid. Opening a pack runs
-the full pack-opening ceremony and puts the cards in the Vault; Global Chat
-lets you post (locally).
+Everything a logged-in collector can do works:
 
-The demo starts at $0 like a new account. **Deposit → Add demo credit** adds
-pretend balance so pack opening and battles can be tried; no payment is
-taken and nothing leaves the browser.
+- **Open packs** — one or several at a time, Safe mode, any tier. The
+  pack-opening ceremony reveals your best card (Sell or Keep); several packs
+  end on a results sheet with every card, sell-one / sell-all / keep-all.
+  Your pulls show up in your Vault, in Recent Hits, in the Feed (tagged You)
+  and on your profile.
+- **Vault** — auto-sell timers, search / filter / sort, select-and-sell
+  tray, Sell all, and card pages (`/slab/:id`) with a confirmed **Sell** and
+  a **Ship** form (US $5 / Canada $10).
+- **Shipments** — each shipment moves Requested → Packed → Shipped →
+  Delivered over a few minutes, with tracking and notifications.
+- **Following** — every @name opens that collector's profile
+  (`/profile/:handle`) with Follow / Following, Share and their collection.
+  The Following feed shows pulls from everyone you follow, with collectors
+  to follow. Followers / Following open the Connections dialog. Someone new
+  follows you a little while after you arrive.
+- **Battles** — join other collectors' open battles (they expire and new
+  ones appear), or post your own (with Lowest wins); an opponent joins a few
+  seconds later and the replay plays wherever you are. Cancel refunds. Wins
+  put every card in your Vault.
+- **Rewards** — open your free pack, daily check-in streak (seven days earns
+  another), VIP progress, invite link and code.
+- **Notifications** — the bell counts unread items (welcome, big pulls,
+  battle results, shipments, new followers); click one to jump to it.
+- **Global Chat** — post messages and share pulls from the Feed (share
+  button → Share to Global Chat); an unread badge counts new messages while
+  the dock is collapsed.
+- **Deposit / Withdraw** — Add demo credit, or withdraw an amount by method
+  into Recent withdrawals. No real money moves either way.
 
 ## What's deliberately not real
 

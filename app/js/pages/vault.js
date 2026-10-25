@@ -6,7 +6,7 @@ import { icon } from '../ui/icons.js';
 import { html, raw, el, $, $$ } from '../ui/dom.js';
 import { viewHead } from '../main.js';
 import { cardArt, slabArt, money } from '../data.js';
-import { session, cardOf, vaultValue, saleTimer, sell } from '../session.js';
+import { session, cardOf, vaultValue, saleTimer, sell, ship, SHIP_COST } from '../session.js';
 import { openDialog } from '../ui/dialogs.js';
 
 export const title = 'Vault';
@@ -316,12 +316,95 @@ function openCard(uid, { navigate, toast }) {
       if (!leaving && location.pathname.startsWith('/slab/')) navigate('/vault', { replace: true });
     },
   });
-  $('.slab-modal__sell', node).addEventListener('click', () => {
-    const got = sell([v.uid]);
-    toast(`Sold ${c.name} for ${money(got)}`);
-    close();
+  // Sell: confirm the price after the fee before it goes.
+  const actions = $('.slab-modal__actions', node);
+  const showActions = () => {
+    actions.className = 'slab-modal__actions';
+    actions.innerHTML = html`<button class="btn btn--secondary slab-modal__sell" type="button">
+        ${raw(icon('cash', { size: 18 }))}Sell</button
+      ><button class="btn btn--secondary slab-modal__ship" type="button">
+        ${raw(icon('shipping', { size: 18 }))}Ship
+      </button>`;
+  };
+  actions.addEventListener('click', (e) => {
+    if (e.target.closest('.slab-modal__sell')) {
+      actions.className = 'slab-modal__actions is-confirm';
+      actions.innerHTML = html`<p class="slab-modal__quote">
+          Sell for <strong class="num">${money(v.value * 0.95)}</strong> after the 5% fee?
+        </p>
+        <button class="btn btn--secondary slab-modal__back" type="button">Cancel</button
+        ><button class="btn btn--primary slab-modal__confirm" type="button">Sell for ${money(v.value * 0.95)}</button>`;
+      return;
+    }
+    if (e.target.closest('.slab-modal__back')) return showActions();
+    if (e.target.closest('.slab-modal__confirm')) {
+      const got = sell([v.uid]);
+      toast(`Sold ${c.name} for ${money(got)}`);
+      close();
+      return;
+    }
+    if (e.target.closest('.slab-modal__ship')) showShipForm();
   });
-  $('.slab-modal__ship', node).addEventListener('click', () => toast('Shipping is disabled in this demo'));
+
+  // Ship: a demo address form. Nothing is sent; the shipment is recorded
+  // locally and moves through its stages on the Shipments page.
+  const showShipForm = () => {
+    const body = node;
+    body.classList.add('is-shipping');
+    const form = el(
+      html`<form class="ship-form">
+        <h3>Ship ${c.name}</h3>
+        <p class="ship-form__note">Demo: any address works and nothing leaves this browser.</p>
+        <label><span>Full name</span><input class="field" name="name" required value="Demo Collector" /></label>
+        <label><span>Address</span><input class="field" name="line1" required value="123 Example Street" /></label>
+        <div class="ship-form__row">
+          <label><span>City</span><input class="field" name="city" required value="Springfield" /></label>
+          <label><span>State / province</span><input class="field" name="region" required value="IL" /></label>
+        </div>
+        <div class="ship-form__row">
+          <label><span>ZIP / postal code</span><input class="field" name="postal" required value="62701" /></label>
+          <label
+            ><span>Country</span
+            ><select class="field" name="country">
+              <option value="US">United States</option>
+              <option value="CA">Canada</option>
+            </select></label
+          >
+        </div>
+        <div class="confirm__row">
+          <button class="btn btn--secondary ship-form__back" type="button">Back</button>
+          <button class="btn btn--primary ship-form__go" type="submit">Ship for $${SHIP_COST.US}</button>
+        </div>
+      </form>`,
+    );
+    actions.replaceWith(form);
+    const go = $('.ship-form__go', form);
+    form.country.addEventListener('change', () => {
+      go.textContent = `Ship for $${SHIP_COST[form.country.value]}`;
+    });
+    $('.ship-form__back', form).addEventListener('click', () => {
+      body.classList.remove('is-shipping');
+      form.replaceWith(actions);
+      showActions();
+    });
+    form.addEventListener('submit', (ev) => {
+      ev.preventDefault();
+      const cost = SHIP_COST[form.country.value];
+      if (session.state.balance < cost) {
+        toast(`Add ${money(cost - session.state.balance)} to cover shipping`);
+        return;
+      }
+      const address = Object.fromEntries(
+        ['name', 'line1', 'city', 'region', 'postal', 'country'].map((k) => [k, form[k].value.trim()]),
+      );
+      ship(v.uid, address);
+      leaving = true;
+      close();
+      toast(`${c.name} is on its way — track it in Shipments`);
+      navigate('/ship', { replace: true });
+    });
+    form.name.focus();
+  };
   const art = $('.slab-modal__art', node);
   node.addEventListener('pointermove', (e) => {
     const r = node.getBoundingClientRect();

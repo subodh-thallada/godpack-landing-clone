@@ -1,12 +1,16 @@
-// Profile (demo account): header with stats, actions, the portfolio card
-// (value, change, range chips, area chart with a hover crosshair), pack
-// activity and the vaulted grid. Signed out, it asks you to log in.
+// Profiles.
+//   /profile          your own: stats, actions, the portfolio card (value,
+//                     change, range chips, chart with a hover crosshair),
+//                     pack activity and the vaulted grid.
+//   /profile/:handle  another collector: bio, stats, Follow / Following,
+//                     Share, and their collection.
+// Followers / Following open the Connections dialog.
 import { icon } from '../ui/icons.js';
 import { html, raw, el, $, $$ } from '../ui/dom.js';
 import { viewHead, avatarOf, navigate as go } from '../main.js';
-import { cardArt, slabArt, money, USERS } from '../data.js';
-import { session, cardOf, vaultValue, portfolioSeries } from '../session.js';
-import { openDialog } from '../ui/dialogs.js';
+import { cardArt, slabArt, money, USERS, profileOf, pullsOf, seeded } from '../data.js';
+import { session, cardOf, vaultValue, portfolioSeries, toggleFollow, isFollowing } from '../session.js';
+import { openDialog, openInspect } from '../ui/dialogs.js';
 
 export const title = 'Profile';
 
@@ -23,7 +27,219 @@ function fmtTime(t, range) {
   });
 }
 
-export function mount(view, { scope, openAuth, toast, navigate }) {
+function tileHtml(v, i) {
+  const c = cardOf(v);
+  const tier = v.tier === 'common' ? 'base' : v.tier;
+  const graded = v.graded != null ? v.graded : v.pack === 'arena' || v.pack === 'master';
+  return `<div class="vault-cell" style="--n:${i}"><button class="tile tile--vault tier-${tier}" type="button" data-uid="${v.uid}" aria-label="${c.name}, ${money(v.value)}"><span class="tile__art"><span class="thumb${graded ? ' is-slab' : ''} glow-${tier}"><img src="${graded ? slabArt(c.id) : cardArt(c.id, 'small')}" alt="" loading="lazy"></span></span><span class="tile__cap"><span class="tile__value num">${money(v.value)}</span><span class="tile__name">${c.name}</span></span></button></div>`;
+}
+
+const sortList = (list, sort) => {
+  const out = list.slice();
+  if (sort === SORTS[1]) out.sort((a, b) => b.value - a.value);
+  if (sort === SORTS[2]) out.sort((a, b) => a.value - b.value);
+  return out;
+};
+
+function sortMenu(view, scope, label, onPick) {
+  const trigger = $('.sort__trigger', view),
+    menu = $('.sort__menu', view);
+  const closeMenu = () => {
+    menu.hidden = true;
+    trigger.setAttribute('aria-expanded', 'false');
+  };
+  scope.on(trigger, 'click', (e) => {
+    e.stopPropagation();
+    menu.hidden = !menu.hidden;
+    trigger.setAttribute('aria-expanded', String(!menu.hidden));
+  });
+  scope.on(menu, 'click', (e) => {
+    const li = e.target.closest('li');
+    if (!li) return;
+    $$('li', menu).forEach((x) => x.setAttribute('aria-selected', String(x === li)));
+    $('.sort__value', view).textContent = li.textContent;
+    closeMenu();
+    onPick(li.textContent);
+  });
+  scope.on(document, 'click', (e) => {
+    if (!e.target.closest('.sort')) closeMenu();
+  });
+}
+
+const sortMarkup = (first) =>
+  html`<div class="sort">
+    <button class="sort__trigger" type="button" aria-haspopup="listbox" aria-expanded="false">
+      <span class="label-caps">Sort</span
+      ><span class="sort__value">${first}</span>${raw(icon('chevronDown', { size: 16 }))}
+    </button>
+    <ul class="sort__menu" role="listbox" hidden>
+      ${raw(SORTS.map((s, i) => `<li role="option" tabindex="-1" aria-selected="${i === 0}">${s}</li>`).join(''))}
+    </ul>
+  </div>`;
+
+// ---------------------------------------------------------------- connections
+
+// Who follows / is followed by `handle`. Yours come from the session; other
+// collectors get a stable sample of the invented community.
+function connectionsOf(handle) {
+  const me = session.state;
+  if (me && handle === me.handle) return { followers: me.followers, following: me.following };
+  const r = seeded(handle.length * 131 + handle.charCodeAt(0));
+  const others = USERS.map((u) => u.handle).filter((h) => h !== handle);
+  const pick = (n) => others.filter(() => r() < n / others.length).slice(0, n);
+  const followers = pick(5);
+  if (me && isFollowing(handle) && !followers.includes(me.handle)) followers.unshift(me.handle);
+  return { followers, following: pick(4) };
+}
+
+export function openConnections(handle, tab, { openAuth, toast }) {
+  let current = tab;
+  const node = el(
+    html`<div class="conn">
+      <div class="odds__head">
+        <h2>Connections</h2>
+        <button class="icon-btn conn__close" type="button" aria-label="Close" data-close>
+          ${raw(icon('close', { size: 18 }))}
+        </button>
+      </div>
+      <div class="tabs conn__tabs" role="tablist">
+        <button role="tab" type="button" data-tab="followers">Followers</button>
+        <button role="tab" type="button" data-tab="following">Following</button>
+        <span class="tabs__bar" aria-hidden="true"></span>
+      </div>
+      <ul class="conn__list"></ul>
+    </div>`,
+  );
+  const close = openDialog(node, { label: 'Connections', className: 'overlay--people' });
+  const list = $('.conn__list', node);
+  const bar = $('.tabs__bar', node);
+  const paint = () => {
+    const me = session.state;
+    $$('[role=tab]', node).forEach((t) => t.setAttribute('aria-selected', String(t.dataset.tab === current)));
+    const active = $(`[data-tab="${current}"]`, node);
+    bar.style.width = active.offsetWidth + 'px';
+    bar.style.transform = `translateX(${active.offsetLeft}px)`;
+    const people = connectionsOf(handle)[current];
+    list.innerHTML = people.length
+      ? people
+          .map((h) => {
+            const isMe = me && h === me.handle;
+            const u = isMe
+              ? { handle: me.handle, color: me.color, vip: 0 }
+              : profileOf(h) || { handle: h, color: '#555', vip: 0 };
+            const following = isFollowing(h);
+            return `<li><a class="conn__who" href="/profile/${h}" data-link>${avatarOf(u, 36)}<span><strong>@${h}</strong>${u.vip ? `<span class="badge-vip">VIP ${u.vip}</span>` : ''}${isMe ? '<span class="conn__you">You</span>' : ''}</span></a>${isMe ? '' : `<button class="btn btn--sm ${following ? 'btn--secondary' : 'btn--primary'} conn__follow" type="button" data-h="${h}">${following ? 'Following' : 'Follow'}</button>`}</li>`;
+          })
+          .join('')
+      : `<li class="conn__empty muted">${current === 'followers' ? 'No followers yet.' : 'Not following anyone yet.'}</li>`;
+  };
+  node.addEventListener('click', (e) => {
+    const t = e.target.closest('[role=tab]');
+    if (t) {
+      current = t.dataset.tab;
+      paint();
+      return;
+    }
+    const f = e.target.closest('.conn__follow');
+    if (f) {
+      if (!session.signedIn) return openAuth('login');
+      const now = toggleFollow(f.dataset.h);
+      toast(now ? `Following @${f.dataset.h}` : `Unfollowed @${f.dataset.h}`);
+      paint();
+      return;
+    }
+    if (e.target.closest('.conn__who')) close();
+  });
+  requestAnimationFrame(paint);
+}
+
+// ---------------------------------------------------------------- mount
+
+export function mount(view, ctx) {
+  const me = session.state;
+  const handle = ctx.params && ctx.params.handle;
+  if (handle && (!me || handle !== me.handle)) return mountOther(view, ctx, handle);
+  return mountMine(view, ctx);
+}
+
+function mountOther(view, { scope, openAuth, toast, navigate }, handle) {
+  const p = profileOf(handle);
+  if (!p) {
+    view.innerHTML = html`${raw(viewHead('Profile'))}
+      <div class="empty surface">
+        <h3>Collector not found</h3>
+        <p>@${handle} isn't part of this demo.</p>
+      </div>`;
+    return;
+  }
+  document.title = `@${handle}'s collection · Godpack app (unofficial recreation)`;
+  const pulls = pullsOf(handle, 10);
+  let sort = SORTS[0];
+
+  view.innerHTML = html`${raw(
+      viewHead(
+        handle,
+        `<span class="profile-handle">@${handle}</span>${p.bio ? `<span class="profile-bio">${p.bio}</span>` : ''}<span class="collector-stats"><span><strong class="num">${pulls.length}</strong> Vaulted</span><button type="button" data-list="followers"><strong class="num" data-followers>${p.followers + (isFollowing(handle) ? 1 : 0)}</strong> Followers</button><button type="button" data-list="following"><strong class="num">${p.following}</strong> Following</button><span><strong class="num">${p.packsOpened.toLocaleString('en-US')}</strong> Packs opened</span></span>`,
+        { avatar: avatarOf(p, 72) },
+      ),
+    )}
+    <div class="profile-actions">
+      <button class="btn profile-follow" type="button"></button>
+      <button class="btn btn--secondary" type="button" data-act="share">
+        ${raw(icon('share', { size: 17 }))}Share profile
+      </button>
+    </div>
+    <div class="section-head profile-vaulted">
+      <h2 class="profile-vaulted__title">Collection</h2>
+      <div class="profile-vaulted__tools">${raw(sortMarkup('Recent'))}</div>
+    </div>
+    <div class="profile-grid"></div>`;
+  if (p.vip)
+    $('.view-title-row h1', view).insertAdjacentHTML('beforeend', ` <span class="badge-vip">VIP ${p.vip}</span>`);
+
+  const follow = $('.profile-follow', view);
+  const paintFollow = () => {
+    const on = isFollowing(handle);
+    follow.textContent = on ? 'Following' : 'Follow';
+    follow.className = `btn profile-follow ${on ? 'btn--secondary' : 'btn--primary'}`;
+    follow.setAttribute('aria-pressed', String(on));
+    $('[data-followers]', view).textContent = p.followers + (on ? 1 : 0);
+  };
+  paintFollow();
+  scope.on(follow, 'click', () => {
+    if (!session.signedIn) return openAuth('login');
+    const now = toggleFollow(handle);
+    toast(now ? `Following @${handle} — their pulls will show in Following` : `Unfollowed @${handle}`);
+    paintFollow();
+  });
+  scope.add(session.on(paintFollow));
+
+  const grid = $('.profile-grid', view);
+  const paintGrid = () => {
+    const list = sortList(pulls, sort);
+    grid.innerHTML = `<div class="card-grid">${list.map(tileHtml).join('')}</div>`;
+  };
+  paintGrid();
+  sortMenu(view, scope, 'Recent', (s) => {
+    sort = s;
+    paintGrid();
+  });
+  scope.on(grid, 'click', (e) => {
+    const t = e.target.closest('.tile');
+    if (t) openInspect(pulls.find((x) => x.uid === t.dataset.uid));
+  });
+
+  scope.on(view, 'click', (e) => {
+    const b = e.target.closest('[data-list]');
+    if (b) openConnections(handle, b.dataset.list, { openAuth, toast });
+    if (e.target.closest('[data-act="share"]')) {
+      if (navigator.clipboard) navigator.clipboard.writeText(`${location.origin}/profile/${handle}`).catch(() => {});
+      toast('Profile link copied');
+    }
+  });
+}
+
+function mountMine(view, { scope, openAuth, toast, navigate }) {
   const me = session.state;
   if (!me) {
     view.innerHTML = html`${raw(viewHead('Profile'))}
@@ -41,7 +257,10 @@ export function mount(view, { scope, openAuth, toast, navigate }) {
   let range = '1D';
   let sort = SORTS[0];
 
-  view.innerHTML = html` ${raw(viewHead(me.name, `<span class="profile-stats">@${me.handle} · <strong class="num">${me.vault.length}</strong> Vaulted · <button class="link" type="button" data-list="followers"><strong class="num">${me.followers}</strong> Followers</button> · <button class="link" type="button" data-list="following"><strong class="num">${me.following}</strong> Following</button></span>`, { avatar: avatarOf(me, 72) }))}
+  const stats = () =>
+    `<span class="profile-stats">@${me.handle} · <strong class="num">${me.vault.length}</strong> Vaulted · <button class="link" type="button" data-list="followers"><strong class="num">${me.followers.length}</strong> Followers</button> · <button class="link" type="button" data-list="following"><strong class="num">${me.following.length}</strong> Following</button></span>${me.bio ? `<span class="profile-bio">${me.bio}</span>` : ''}`;
+
+  view.innerHTML = html` ${raw(viewHead(me.name, stats(), { avatar: avatarOf(me, 72) }))}
     <div class="profile-actions">
       <button class="btn btn--secondary" type="button" data-act="edit">
         ${raw(icon('pencil', { size: 17 }))}Edit profile
@@ -100,15 +319,7 @@ export function mount(view, { scope, openAuth, toast, navigate }) {
       <h2 class="profile-vaulted__title">Vaulted</h2>
       <div class="profile-vaulted__tools">
         <a class="link" href="/vault" data-link>Manage Vault</a>
-        <div class="sort">
-          <button class="sort__trigger" type="button" aria-haspopup="listbox" aria-expanded="false">
-            <span class="label-caps">Sort</span
-            ><span class="sort__value">${sort}</span>${raw(icon('chevronDown', { size: 16 }))}
-          </button>
-          <ul class="sort__menu" role="listbox" hidden>
-            ${raw(SORTS.map((s, i) => `<li role="option" tabindex="-1" aria-selected="${i === 0}">${s}</li>`).join(''))}
-          </ul>
-        </div>
+        ${raw(sortMarkup(SORTS[0]))}
       </div>
     </div>
     <div class="profile-grid"></div>`;
@@ -208,16 +419,9 @@ export function mount(view, { scope, openAuth, toast, navigate }) {
   // ---- vaulted grid ----
   const grid = $('.profile-grid', view);
   function paintGrid() {
-    let list = me.vault.slice();
-    if (sort === SORTS[1]) list.sort((a, b) => b.value - a.value);
-    if (sort === SORTS[2]) list.sort((a, b) => a.value - b.value);
+    const list = sortList(me.vault, sort);
     grid.innerHTML = list.length
-      ? `<div class="card-grid">${list
-          .map((v, i) => {
-            const c = cardOf(v);
-            return `<div class="vault-cell" style="--n:${i}"><button class="tile tile--vault tier-${v.tier === 'common' ? 'base' : v.tier}" type="button" data-uid="${v.uid}" aria-label="${c.name}, ${money(v.value)}"><span class="tile__art"><span class="thumb${v.graded ? ' is-slab' : ''} glow-${v.tier === 'common' ? 'base' : v.tier}"><img src="${v.graded ? slabArt(c.id) : cardArt(c.id, 'small')}" alt="" loading="lazy"></span></span><span class="tile__cap"><span class="tile__value num">${money(v.value)}</span><span class="tile__name">${c.name}</span></span></button></div>`;
-          })
-          .join('')}</div>`
+      ? `<div class="card-grid">${list.map(tileHtml).join('')}</div>`
       : '<div class="empty surface"><h3>Nothing vaulted yet</h3><p>Cards you keep from packs show up here.</p></div>';
   }
   paintGrid();
@@ -225,29 +429,20 @@ export function mount(view, { scope, openAuth, toast, navigate }) {
     const t = e.target.closest('.tile');
     if (t) navigate('/slab/' + t.dataset.uid);
   });
-
-  const trigger = $('.sort__trigger', view),
-    menu = $('.sort__menu', view);
-  const closeMenu = () => {
-    menu.hidden = true;
-    trigger.setAttribute('aria-expanded', 'false');
-  };
-  scope.on(trigger, 'click', (e) => {
-    e.stopPropagation();
-    menu.hidden = !menu.hidden;
-    trigger.setAttribute('aria-expanded', String(!menu.hidden));
-  });
-  scope.on(menu, 'click', (e) => {
-    const li = e.target.closest('li');
-    if (!li) return;
-    $$('li', menu).forEach((x) => x.setAttribute('aria-selected', String(x === li)));
-    $('.sort__value', view).textContent = sort = li.textContent;
-    closeMenu();
+  sortMenu(view, scope, SORTS[0], (s) => {
+    sort = s;
     paintGrid();
   });
-  scope.on(document, 'click', (e) => {
-    if (!e.target.closest('.sort')) closeMenu();
-  });
+
+  // Follow counts change while you're here (someone follows you, or you
+  // follow back from Connections).
+  scope.add(
+    session.on(() => {
+      if (!session.state) return;
+      const sub = $('.view-sub', view);
+      if (sub) sub.innerHTML = stats();
+    }),
+  );
 
   // ---- actions ----
   scope.on($('.profile-actions', view), 'click', (e) => {
@@ -255,13 +450,13 @@ export function mount(view, { scope, openAuth, toast, navigate }) {
     if (!b) return;
     const act = b.dataset.act;
     if (act === 'share') {
-      if (navigator.clipboard) navigator.clipboard.writeText(location.origin + '/profile').catch(() => {});
+      if (navigator.clipboard) navigator.clipboard.writeText(`${location.origin}/profile/${me.handle}`).catch(() => {});
       toast('Profile link copied');
     }
     if (act === 'discord') toast('Discord linking is not part of this demo');
     if (act === 'logout') {
       session.signOut();
-      toast('Signed out of the demo account');
+      toast('Logged out of the demo account');
       go('/packs');
     }
     if (act === 'edit') {
@@ -271,44 +466,43 @@ export function mount(view, { scope, openAuth, toast, navigate }) {
           <label class="edit-profile__field"
             ><span>Display name</span><input class="field" name="name" maxlength="24" value="${me.name}"
           /></label>
+          <label class="edit-profile__field"
+            ><span>Bio</span
+            ><input class="field" name="bio" maxlength="80" value="${me.bio || ''}" placeholder="A line about you"
+          /></label>
           <p class="edit-profile__note">Saved in this browser only.</p>
           <div class="confirm__row">
+            <button class="btn btn--ghost edit-profile__reset" type="button">Reset demo data</button>
             <button class="btn btn--secondary" type="button" data-close>Cancel</button
             ><button class="btn btn--primary" type="submit">Save</button>
           </div>
         </form>`,
       );
       const close = openDialog(node, { label: 'Edit profile', className: 'overlay--confirm' });
+      $('.edit-profile__reset', node).addEventListener('click', () => {
+        session.reset();
+        close();
+        toast('Demo data reset');
+        go('/packs');
+      });
       node.addEventListener('submit', (ev) => {
         ev.preventDefault();
         const name = node.name.value.trim();
-        if (name)
-          session.update((s) => {
-            s.name = name;
-          });
+        const bio = node.bio.value.trim();
+        session.update((s) => {
+          if (name) s.name = name;
+          s.bio = bio;
+        });
         close();
         $('.view-title-row h1', view).textContent = session.state.name;
+        $('.view-sub', view).innerHTML = stats();
         toast('Profile updated');
       });
     }
   });
 
-  // Followers / following lists (invented collectors).
   scope.on(view, 'click', (e) => {
     const b = e.target.closest('[data-list]');
-    if (!b) return;
-    const people = b.dataset.list === 'followers' ? USERS.slice(0, me.followers) : USERS.slice(5, 5 + me.following);
-    const node = el(
-      html`<div class="people">
-        <div class="odds__head">
-          <h2>${b.dataset.list === 'followers' ? 'Followers' : 'Following'}</h2>
-          <button class="dialog__close" type="button" data-close>Close</button>
-        </div>
-        <ul>
-          ${raw(people.map((u) => `<li>${avatarOf(u, 36)}<span><strong>@${u.handle}</strong>${u.vip ? `<span class="badge-vip">VIP ${u.vip}</span>` : ''}</span></li>`).join(''))}
-        </ul>
-      </div>`,
-    );
-    openDialog(node, { label: b.dataset.list, className: 'overlay--people' });
+    if (b) openConnections(me.handle, b.dataset.list, { openAuth, toast });
   });
 }

@@ -2545,7 +2545,7 @@
 /* Tiles */
 .rw-tiles {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 16px;
 }
 .rw-tile {
@@ -4498,4 +4498,767 @@
   .rw-link--code {
     flex: 1 1 100%;
   }
+}
+
+/* ==========================================================================
+   Demo-account interactions
+   ========================================================================== */
+
+/* ---------- Notifications ---------- */
+
+.notif__count {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--c-primary);
+  box-shadow: 0 0 0 2px var(--c-bg);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+.notif__count[hidden] {
+  display: none;
+}
+.notif__count.is-bump {
+  animation: notif-bump 0.42s var(--e-spring);
+}
+@keyframes notif-bump {
+  40% {
+    transform: scale(1.3);
+  }
+}
+.notif__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px 0 0;
+}
+.notif__all {
+  color: var(--c-accent-soft);
+  font-size: 12px;
+  font-weight: 600;
+}
+.notif__all:hover {
+  color: #c3b4ff;
+}
+.notif__list {
+  margin: 6px 0 0;
+  padding: 0 0 6px;
+  list-style: none;
+  overflow-y: auto;
+}
+.notif__item {
+  position: relative;
+  display: grid;
+  gap: 2px;
+  padding: 11px 20px 11px 30px;
+  border-top: 1px solid var(--c-line);
+  color: var(--c-text);
+  text-decoration: none;
+  font-size: 13px;
+  transition: background-color 0.14s;
+}
+.notif__item:hover {
+  background: var(--c-surface-hover);
+}
+.notif__item span {
+  color: var(--c-muted);
+  line-height: 1.45;
+}
+.notif__item time {
+  color: var(--c-faint);
+  font-size: 11px;
+}
+.notif__item.is-unread::before {
+  content: '';
+  position: absolute;
+  left: 14px;
+  top: 17px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--c-accent-soft);
+}
+
+/* ---------- Chat ---------- */
+
+.dock__unread {
+  min-width: 20px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 9px;
+  background: var(--c-primary);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+.dock__unread[hidden] {
+  display: none;
+}
+.msg__avatar {
+  flex: none;
+  border-radius: 50%;
+}
+.msg__name {
+  color: var(--c-label);
+  text-decoration: none;
+}
+.msg__name:hover {
+  text-decoration: underline;
+}
+.msg__pull {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 260px;
+  margin-top: 6px;
+  padding: 8px;
+  border: 1px solid var(--c-line);
+  border-radius: 10px;
+  background: var(--c-surface-2);
+  color: var(--c-text);
+  text-decoration: none;
+  transition: border-color 0.16s;
+}
+.msg__pull:hover {
+  border-color: var(--c-line-strong);
+}
+.msg__pull .thumb {
+  flex: none;
+  width: 34px;
+}
+.msg__pull-text {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+  font-size: 12px;
+}
+.msg__pull-text strong {
+  font-size: 13px;
+}
+.msg__pull-text span {
+  color: var(--c-muted);
+}
+.msg__pull-value {
+  color: var(--c-money) !important;
+  font-weight: 700;
+}
+
+/* ---------- Feed ---------- */
+
+.post__you {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgb(124 92 255 / 0.18);
+  color: var(--c-accent-soft);
+  font-size: 10px;
+  font-weight: 700;
+}
+.bt__side {
+  color: inherit;
+  text-decoration: none;
+}
+.bt__side:hover span:last-child {
+  text-decoration: underline;
+}
+.lb__who {
+  color: inherit;
+  text-decoration: none;
+}
+.lb__who:hover strong {
+  text-decoration: underline;
+}
+
+.share-menu {
+  position: fixed;
+  z-index: 70;
+  display: grid;
+  min-width: 190px;
+  padding: 6px;
+  border: 1px solid var(--c-dialog-line);
+  border-radius: 12px;
+  background: var(--c-dialog);
+  box-shadow: 0 18px 50px rgb(0 0 0 / 0.5);
+  animation: menu-in 0.18s var(--e-out) both;
+}
+.share-menu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+}
+.share-menu button:hover {
+  background: var(--c-surface-hover);
+}
+
+.suggest {
+  margin-top: 18px;
+  padding: 16px 18px;
+}
+.suggest h3 {
+  font-size: 15px;
+  font-weight: 700;
+}
+.suggest ul {
+  display: grid;
+  gap: 4px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.suggest li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+}
+.suggest__who {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+.suggest__who > span {
+  display: grid;
+  min-width: 0;
+}
+.suggest__who strong {
+  font-size: 14px;
+}
+.suggest__who span span {
+  overflow: hidden;
+  color: var(--c-muted);
+  font-size: 12px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.suggest__who:hover strong {
+  text-decoration: underline;
+}
+
+/* ---------- Profiles ---------- */
+
+.profile-handle {
+  display: block;
+  color: var(--c-muted);
+  font-size: 14px;
+  font-weight: 500;
+}
+.profile-bio {
+  display: block;
+  margin-top: 4px;
+  color: var(--c-text);
+  font-size: 14px;
+  font-weight: 500;
+}
+.collector-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-top: 10px;
+  color: var(--c-muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+.collector-stats strong {
+  font-weight: 700;
+}
+.collector-stats button {
+  color: inherit;
+  font-size: inherit;
+}
+.collector-stats button:hover {
+  color: var(--c-text);
+}
+.view-head--avatar h1 .badge-vip {
+  vertical-align: 6px;
+}
+.profile-follow {
+  min-width: 96px;
+}
+
+.conn .odds__head {
+  margin-bottom: 4px;
+}
+.conn__close {
+  width: 40px;
+  height: 40px;
+  margin: -8px -10px -8px 0;
+  color: var(--c-label-2);
+}
+.conn__tabs {
+  margin: 0 2px;
+}
+.conn__tabs [role='tab'] {
+  flex: 1;
+}
+.conn__list {
+  display: grid;
+  gap: 2px;
+  max-height: 360px;
+  margin: 10px 0 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+.conn__list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px;
+  border-radius: 10px;
+}
+.conn__list li:hover {
+  background: var(--c-surface-hover);
+}
+.conn__who {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: inherit;
+  text-decoration: none;
+}
+.conn__who > span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+.conn__you {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--c-control);
+  color: var(--c-muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+.conn__empty {
+  justify-content: center !important;
+  padding: 16px !important;
+  font-size: 15px;
+}
+
+/* ---------- Pack results (multi-pack opens) ---------- */
+
+.overlay--results .dialog {
+  width: min(640px, 100%);
+}
+.results__sum {
+  margin-top: 8px;
+  color: var(--c-muted);
+  font-size: 14px;
+}
+.results__sum strong {
+  color: var(--c-text);
+}
+.results__delta {
+  margin-left: 6px;
+  font-weight: 700;
+}
+.results__delta.is-up {
+  color: var(--c-online);
+}
+.results__delta.is-down {
+  color: var(--c-danger);
+}
+.results__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  gap: 12px;
+  max-height: 52vh;
+  margin: 16px 0 0;
+  padding: 4px;
+  overflow-y: auto;
+  list-style: none;
+}
+.results__grid li {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 12px 8px 10px;
+  border-radius: 14px;
+  background: var(--c-surface);
+  text-align: center;
+  animation: tile-rise 0.45s var(--e-out) both;
+  animation-delay: calc(min(var(--n), 10) * 50ms);
+  transition: opacity 0.25s;
+}
+.results__grid .thumb {
+  width: 74px;
+}
+.results__value {
+  color: var(--c-money);
+  font-size: 15px;
+  font-weight: 700;
+}
+.results__name {
+  font-size: 12px;
+  font-weight: 600;
+}
+.results__grid li.is-sold {
+  opacity: 0.45;
+}
+
+/* ---------- Vault card: sell confirm + ship form ---------- */
+
+.slab-modal__actions.is-confirm {
+  grid-template-columns: 1fr 1fr;
+}
+.slab-modal__quote {
+  grid-column: 1 / -1;
+  color: var(--c-muted);
+  font-size: 14px;
+  text-align: center;
+}
+.slab-modal__quote strong {
+  color: var(--c-money);
+}
+.slab-modal.is-shipping .slab-modal__art {
+  width: 120px;
+}
+.slab-modal.is-shipping .slab-modal__art.is-slab {
+  width: 120px;
+}
+.ship-form {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+  margin-top: 18px;
+  text-align: left;
+  animation: view-in 0.3s var(--e-out) both;
+}
+.ship-form h3 {
+  font-size: 16px;
+  font-weight: 700;
+}
+.ship-form__note {
+  color: var(--c-muted);
+  font-size: 12px;
+}
+.ship-form label {
+  display: grid;
+  gap: 5px;
+  color: var(--c-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.ship-form .field {
+  min-height: 40px;
+  font-size: 14px;
+}
+.ship-form select.field {
+  appearance: none;
+  padding-right: 30px;
+  background: var(--c-surface-2)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23a6a2bc' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E")
+    no-repeat right 10px center;
+}
+.ship-form__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.ship-form .confirm__row {
+  margin-top: 6px;
+}
+
+/* ---------- Shipments ---------- */
+
+.shipments {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  align-content: start;
+}
+.shipment {
+  display: flex;
+  gap: 16px;
+  padding: 16px 18px;
+  animation: view-in 0.35s var(--e-out) both;
+}
+.shipment__art {
+  flex: none;
+  width: 64px;
+}
+.shipment__main {
+  flex: 1;
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.shipment__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.shipment__top strong {
+  font-size: 16px;
+}
+.shipment__status {
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--c-control);
+  color: var(--c-label-2);
+  font-size: 11px;
+  font-weight: 700;
+}
+.shipment__status.is-shipped {
+  background: rgb(57 180 255 / 0.15);
+  color: #8fd3ff;
+}
+.shipment__status.is-delivered {
+  background: rgb(61 214 140 / 0.15);
+  color: var(--c-online);
+}
+.shipment__meta {
+  color: var(--c-muted);
+  font-size: 12.5px;
+}
+.shipment__tracking {
+  color: var(--c-faint);
+  font-size: 11.5px;
+}
+.track {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  margin: 10px 0 4px;
+  padding: 0;
+  list-style: none;
+}
+.track li {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  color: var(--c-faint);
+  font-size: 11px;
+  font-weight: 600;
+}
+.track li span {
+  position: relative;
+  z-index: 1;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--c-control);
+  box-shadow: 0 0 0 3px var(--c-surface);
+  transition: background-color 0.4s;
+}
+.track li + li::before {
+  content: '';
+  position: absolute;
+  top: 5px;
+  right: 50%;
+  width: 100%;
+  height: 2px;
+  background: var(--c-control);
+  transition: background-color 0.4s;
+}
+.track li.is-done {
+  color: var(--c-label-2);
+}
+.track li.is-done span,
+.track li.is-done::before {
+  background: var(--c-primary);
+}
+.track li.is-current span {
+  box-shadow:
+    0 0 0 3px var(--c-surface),
+    0 0 0 6px rgb(121 84 237 / 0.35);
+}
+
+/* ---------- Withdraw ---------- */
+
+.payout__amount {
+  grid-template-columns: minmax(0, 1fr);
+  display: grid;
+  gap: 6px;
+  margin-top: 18px;
+  color: var(--c-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+.payout__field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 52px;
+  padding: 0 8px 0 14px;
+  border: 1px solid var(--c-line-strong);
+  border-radius: 12px;
+  background: #0f0e14;
+  color: var(--c-muted);
+  font-size: 20px;
+  font-weight: 700;
+}
+.payout__field:focus-within {
+  border-color: var(--c-focus);
+}
+.payout__field.is-error {
+  border-color: var(--c-danger);
+}
+.payout__field input {
+  width: 100%;
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  color: var(--c-text);
+  font-size: 22px;
+  font-weight: 800;
+  outline: none;
+}
+.payout__max {
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--c-control);
+  color: var(--c-label);
+  font-size: 12px;
+  font-weight: 700;
+}
+.payout__avail {
+  margin-top: 8px;
+}
+.payout__go[disabled] {
+  opacity: 0.45;
+}
+.payout__history {
+  margin-top: 28px;
+}
+.payout__history h3 {
+  font-size: 15px;
+  font-weight: 700;
+}
+.payout__history ul {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.payout__history li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--c-line);
+  border-radius: 12px;
+  font-size: 13px;
+}
+.payout__state {
+  color: var(--c-muted);
+}
+
+/* ---------- Battles ---------- */
+
+.ob.is-mine {
+  border-color: rgb(157 133 255 / 0.45);
+}
+.ob.is-mine .ob__name {
+  color: var(--c-text);
+}
+.ob__cancel {
+  min-width: 84px;
+}
+
+@media (max-width: 760px) {
+  .shipment {
+    gap: 12px;
+    padding: 14px;
+  }
+  .shipment__art {
+    width: 52px;
+  }
+  .ship-form__row {
+    grid-template-columns: 1fr;
+  }
+  .results__grid {
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  }
+}
+
+/* ---------- Phone fixes for the demo-account screens ---------- */
+
+@media (max-width: 760px) {
+  .rw-tiles {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .rw-tile .rw-hint,
+  .rw-label {
+    overflow-wrap: anywhere;
+  }
+  .rw-invite__stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .rw-link {
+    width: 100%;
+    min-width: 0;
+  }
+  .rw-link input {
+    min-width: 0;
+  }
+  .rw-daily {
+    padding: 20px 16px;
+  }
+  .streak__day span {
+    width: 28px;
+    height: 28px;
+    font-size: 12px;
+  }
+  .streak__day::after {
+    margin: 0 2px;
+  }
+  .streak__day em {
+    top: 34px;
+    left: 14px;
+  }
+  .streak__pack img {
+    width: 40px;
+  }
+
+  /* Profiles: the name gets its own line under the bell and wallet. */
+  .view-head--avatar .view-title-row {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+  .view-head--avatar .view-title-row > .acct,
+  .view-head--avatar .view-title-row > .auth-btns {
+    order: 1;
+    margin-left: auto;
+  }
+  .view-head--avatar .view-title-row h1 {
+    order: 2;
+    flex-basis: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
+/* Invite fields shrink to fit beside the Share button at every width. */
+.rw-link {
+  min-width: 0;
+}
+.rw-link input {
+  width: 100%;
+  min-width: 0;
 }

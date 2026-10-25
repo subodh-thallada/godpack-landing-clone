@@ -2,10 +2,10 @@
 // (step between tiers, foil follows the pointer) and an order panel on the
 // right (quantity, tier menu, value range + odds, a call to action).
 import { icon } from './icons.js';
-import { html, raw, $, $$, store } from './dom.js';
+import { html, raw, el, $, $$, store } from './dom.js';
 import { PACKS, packArt, money, priceLabel } from '../data.js';
-import { openOdds } from './dialogs.js';
-import { session, openPacks, sell, cardOf } from '../session.js';
+import { openOdds, openDialog } from './dialogs.js';
+import { session, openPacks, sell, cardOf, postBattle } from '../session.js';
 
 const rangeText = (r) => `${money(r[0], { compact: true })} – ${money(r[1], { compact: true })}`;
 
@@ -313,7 +313,8 @@ export function wireStore(root, { scope, openAuth, battle = false, onTier, navig
       return;
     }
     if (battle) {
-      startBattle(pack(), qty, toast);
+      const rule = $('.rule', root);
+      startBattle(pack(), qty, !!rule && rule.getAttribute('aria-checked') === 'true', toast, navigate);
       return;
     }
     ceremony(pack(), qty, packs[index], toast);
@@ -373,49 +374,112 @@ function layer() {
   return l;
 }
 
-// Charge the demo balance, move the pulls into the vault and reveal the
-// best one with the pack-opening ceremony.
-async function ceremony(pack, qty, packEl, toast) {
-  const pulls = openPacks(pack, qty);
+// Charge the demo balance (or use a free pack), move the pulls into the
+// vault and reveal the best one with the pack-opening ceremony. Several
+// packs end on a results sheet with every card.
+export async function ceremony(pack, qty, packEl, toast, { free = false } = {}) {
+  const pulls = openPacks(pack, qty, { free });
   const best = pulls.reduce((a, b) => (b.value > a.value ? b : a));
   const card = cardOf(best);
   await import('./ceremony.js');
   const idx = Math.max(0, CEREMONY_PACKS.indexOf(pack.art));
   await window.PackDemo.preload(idx).catch(() => {});
-  const box = packEl.getBoundingClientRect();
+  const box = packEl ? packEl.getBoundingClientRect() : null;
   const host = layer();
   host.hidden = false;
   document.documentElement.style.overflow = 'hidden';
+  let after = null;
+  const single = [
+    {
+      label: `Sell for ${money(best.value * 0.95)}`,
+      onClick: () => {
+        sell([best.uid]);
+        toast(`Sold ${card.name} for ${money(best.value * 0.95)}`);
+      },
+    },
+    { label: 'Keep', primary: true, onClick: () => toast(`${card.name} is in your Vault`) },
+  ];
+  const several = [
+    { label: 'Keep all', onClick: () => toast(`${pulls.length} cards added to your Vault`) },
+    {
+      label: `See all ${pulls.length} cards`,
+      primary: true,
+      onClick: () => (after = () => showResults(pack, pulls, toast)),
+    },
+  ];
   window.PackDemo.open({
     root: host,
     pack: idx,
-    from: { x: box.left, y: box.top, w: box.width, h: box.height },
+    from: box ? { x: box.left, y: box.top, w: box.width, h: box.height } : null,
     card: { id: card.id, name: card.name, value: best.value, tier: best.tier },
-    actions: [
-      {
-        label: `Sell for ${money(best.value * 0.95)}`,
-        onClick: () => {
-          sell([best.uid]);
-          toast(`Sold ${card.name} for ${money(best.value * 0.95)}`);
-        },
-      },
-      { label: 'Keep', primary: true, onClick: () => toast(`${card.name} is in your Vault`) },
-    ],
+    actions: pulls.length > 1 ? several : single,
     onClose: () => {
       host.hidden = true;
       document.documentElement.style.overflow = '';
-      if (pulls.length > 1) toast(`${pulls.length - 1} more card${pulls.length > 2 ? 's' : ''} added to your Vault`);
+      if (after) after();
     },
   });
 }
 
-// A demo battle: pay the entry, then replay it against a random collector.
-async function startBattle(pack, qty, toast) {
-  session.update((s) => {
-    s.balance = Math.round((s.balance - pack.price * qty) * 100) / 100;
-    s.volume += pack.price * qty;
+// Every card from a multi-pack open, best first, with sell / keep.
+function showResults(pack, pulls, toast) {
+  const sorted = pulls.slice().sort((a, b) => b.value - a.value);
+  const total = sorted.reduce((s, p) => s + p.value, 0);
+  const spent = pack.price * pulls.length;
+  const node = el(
+    html`<div class="results">
+      <div class="odds__head">
+        <h2>${pulls.length} ${pack.name} packs</h2>
+        <button class="dialog__close" type="button" data-close>Done</button>
+      </div>
+      <p class="results__sum">
+        Pulled <strong class="num">${money(total)}</strong> from
+        <span class="num">${money(spent, { compact: true })}</span>
+        <span class="results__delta num ${total >= spent ? 'is-up' : 'is-down'}"
+          >${total >= spent ? '+' : '−'}${money(Math.abs(total - spent))}</span
+        >
+      </p>
+      <ul class="results__grid">
+        ${raw(
+          sorted
+            .map((p, i) => {
+              const c = cardOf(p);
+              return `<li style="--n:${i}" data-uid="${p.uid}"><span class="thumb${p.graded ? ' is-slab' : ''} glow-${p.tier === 'common' ? 'base' : p.tier}"><img src="${p.graded ? `/assets/slabs/${c.id}-400.webp` : `/app/assets/cards/${c.id}-200.webp`}" alt=""></span><span class="results__value num">${money(p.value)}</span><span class="results__name">${c.name}</span><button class="btn btn--secondary btn--sm results__sell" type="button">Sell</button></li>`;
+            })
+            .join(''),
+        )}
+      </ul>
+      <div class="confirm__row">
+        <button class="btn btn--secondary results__sellall" type="button">Sell all for ${money(total * 0.95)}</button>
+        <button class="btn btn--primary" type="button" data-close>Keep all</button>
+      </div>
+    </div>`,
+  );
+  const close = openDialog(node, { label: 'Your pulls', className: 'overlay--results' });
+  node.addEventListener('click', (e) => {
+    const one = e.target.closest('.results__sell');
+    if (one) {
+      const li = one.closest('li');
+      const got = sell([li.dataset.uid]);
+      toast(`Sold for ${money(got)}`);
+      li.classList.add('is-sold');
+      one.disabled = true;
+      one.textContent = 'Sold';
+      return;
+    }
+    if (e.target.closest('.results__sellall')) {
+      const left = [...node.querySelectorAll('li:not(.is-sold)')].map((li) => li.dataset.uid);
+      const got = sell(left);
+      toast(`Sold ${left.length} cards for ${money(got)}`);
+      close();
+    }
   });
-  toast('Battle posted — finding an opponent…');
-  const { replayBattle } = await import('../pages/feed.js');
-  setTimeout(() => replayBattle({ pack, each: qty, mine: true }), 1400);
+}
+
+// Post a battle: pay the entry now and wait in Open battles for someone to
+// join (main.js brings an opponent in a few seconds later).
+function startBattle(pack, qty, lowest, toast, navigate) {
+  postBattle(pack, qty, lowest);
+  toast('Battle posted — waiting for an opponent');
+  if (location.pathname !== '/battles') navigate('/battles');
 }
