@@ -8,9 +8,11 @@
     "art": "node tools/render-art.js",
     "shots": "node tools/compare.js",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "og-video": "node tools/render-og-video.js"
   },
   "devDependencies": {
+    "mp4-muxer": "^5.2.2",
     "pixelmatch": "^5.3.0",
     "playwright": "1.64.1",
     "pngjs": "^7.0.0",

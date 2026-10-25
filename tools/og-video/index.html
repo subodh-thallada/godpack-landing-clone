@@ -1,0 +1,111 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Link-preview video</title>
+    <style>
+      @font-face {
+        font-family: 'Hanken Grotesk';
+        src: url('../../assets/fonts/hanken-grotesk-latin.woff2') format('woff2');
+        font-weight: 400 800;
+      }
+      body {
+        margin: 0;
+        display: grid;
+        place-items: center;
+        min-height: 100vh;
+        background: #000;
+      }
+      canvas {
+        width: min(100vw, 1200px);
+        height: auto;
+        border-radius: 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="stage" width="1200" height="630"></canvas>
+    <script src="../../node_modules/mp4-muxer/build/mp4-muxer.js"></script>
+    <script src="scene.js"></script>
+    <script>
+      // tools/render-og-video.js drives encode(), poster() and frame(); opened
+      // by hand, the page just plays the loop in real time as a preview.
+      const canvas = document.getElementById('stage');
+      const ctx = canvas.getContext('2d');
+
+      const toDataURL = (blob) =>
+        new Promise((resolve) => {
+          const r = new FileReader();
+          r.onload = () => resolve(r.result);
+          r.readAsDataURL(blob);
+        });
+
+      window.frame = async (t) => {
+        await OG.ready;
+        OG.draw(ctx, t);
+        return canvas.toDataURL('image/png');
+      };
+
+      window.poster = async (t = 0) => {
+        await OG.ready;
+        OG.draw(ctx, t);
+        return canvas.toDataURL('image/jpeg', 0.9);
+      };
+
+      // Encode the whole loop to H.264 and mux it into a fast-start MP4.
+      window.encode = async ({ bitrate = 2_400_000 } = {}) => {
+        await OG.ready;
+        const { W, H, FPS, DURATION } = OG;
+        const candidates = ['avc1.4d0028', 'avc1.42e028', 'avc1.640028'];
+        let config = null;
+        for (const codec of candidates) {
+          const c = { codec, width: W, height: H, bitrate, framerate: FPS, avc: { format: 'avc' }, latencyMode: 'quality' };
+          if ((await VideoEncoder.isConfigSupported(c)).supported) {
+            config = c;
+            break;
+          }
+        }
+        if (!config) throw new Error('No supported H.264 encoder configuration');
+
+        const muxer = new Mp4Muxer.Muxer({
+          target: new Mp4Muxer.ArrayBufferTarget(),
+          video: { codec: 'avc', width: W, height: H, frameRate: FPS },
+          fastStart: 'in-memory',
+        });
+        let failure = null;
+        const encoder = new VideoEncoder({
+          output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
+          error: (e) => (failure = e),
+        });
+        encoder.configure(config);
+
+        const frames = Math.round(FPS * DURATION);
+        const step = 1e6 / FPS;
+        for (let i = 0; i < frames; i++) {
+          OG.draw(ctx, i / FPS);
+          const vf = new VideoFrame(canvas, { timestamp: Math.round(i * step), duration: Math.round(step) });
+          encoder.encode(vf, { keyFrame: i % FPS === 0 });
+          vf.close();
+          while (encoder.encodeQueueSize > 8) await new Promise((r) => setTimeout(r, 2));
+          if (failure) throw failure;
+        }
+        await encoder.flush();
+        if (failure) throw failure;
+        muxer.finalize();
+        const url = await toDataURL(new Blob([muxer.target.buffer], { type: 'video/mp4' }));
+        return { codec: config.codec, frames, data: url.split(',')[1] };
+      };
+
+      if (!navigator.webdriver) {
+        OG.ready.then(() => {
+          const start = performance.now();
+          const loop = (now) => {
+            OG.draw(ctx, (now - start) / 1000);
+            requestAnimationFrame(loop);
+          };
+          requestAnimationFrame(loop);
+        });
+      }
+    </script>
+  </body>
+</html>

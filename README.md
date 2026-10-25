@@ -53,6 +53,24 @@ at the same sizes:
 
 To regenerate the art after editing a generator: `npm run art` (or `node tools/render-art.js packs|slabs|extras`).
 
+## Link preview video
+
+When the link is shared in Messages, the preview plays `assets/og/og-video.mp4`: the
+hexagon mark and wordmark slide apart and a pack opens between them, then the lockup
+closes up again in a seamless 6 s loop. `assets/og-image.jpg` is its first frame and
+serves as the still preview elsewhere.
+
+Both come from the canvas scene in `tools/og-video/scene.js`. To regenerate them (it
+needs Google Chrome installed, for its H.264 encoder):
+
+```bash
+npm run og-video
+```
+
+Open `tools/og-video/index.html` in Chrome to watch the loop live while editing it.
+Messages caches previews per URL, so test a changed preview with a fresh query string
+(for example `?v=2`).
+
 ## Deploy (Vercel)
 
 It's a static site with no build step. `.vercelignore` uploads only `index.html`,
