@@ -688,7 +688,7 @@ h1 {
   color: var(--ink-3);
   font-size: 0.75rem;
   font-weight: 500;
-  line-height: 1.2;
+  line-height: 1.4;
   text-decoration: none;
   transition:
     color 160ms,
