@@ -62,12 +62,12 @@ It's a static site with no build step. `.vercelignore` uploads only `index.html`
 vercel deploy
 ```
 
-Deployments are kept **private**: the project uses Vercel Authentication, so only
-signed-in members of the Vercel account can open them, and pages send
-`X-Robots-Tag: noindex`. Don't promote it to a public production domain.
+The live site is public at https://godpack-landing-clone.vercel.app, and every push
+to `main` redeploys it. Pages send `X-Robots-Tag: noindex` so the recreation doesn't
+show up in search results next to the real site.
 
 ## Note
 
-The page keeps Godpack's name, copy and links because it recreates their site.
-Use it for local study, and keep any deployment private rather than presenting it
-publicly as Godpack's.
+This is an unofficial recreation for a portfolio, not affiliated with Godpack. The
+page keeps Godpack's name, copy and links because it recreates their site, and a
+fixed credit label on every page says so.
