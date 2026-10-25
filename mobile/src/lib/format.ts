@@ -20,6 +20,11 @@ export const since = (t: number) => ago(Math.floor((Date.now() - t) / 60000));
 
 export const round2 = (v: number) => Math.round(v * 100) / 100;
 
+// Counts get thousands separators, and the right word for one versus many
+// ("1 card", "1,284 cards").
+export const num = (n: number) => n.toLocaleString('en-US');
+export const plural = (n: number, one: string, many = `${one}s`) => `${num(n)} ${n === 1 ? one : many}`;
+
 export function clock(ms: number): string {
   const left = Math.max(0, Math.ceil(ms / 1000));
   return `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;

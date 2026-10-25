@@ -3,7 +3,12 @@
 import { router } from 'expo-router';
 import type { BottomTabBarProps } from 'expo-router/js-tabs';
 import { StyleSheet, Text, View } from 'react-native';
+import { useEffect } from 'react';
+import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { plural } from '../lib/format';
+import { EASE_OUT } from '../lib/motion';
+import { usePulse } from './Curtain';
 import { openBattles, useSession } from '../store/session';
 import { colors, radius } from '../theme';
 import { Icon, type IconName } from './Icon';
@@ -49,7 +54,7 @@ export function TabBar({ state, emitter, navigateToTab }: BottomTabBarProps) {
                 style={styles.tab}
               >
                 <View style={[styles.marker, on && styles.markerOn]}>
-                  <Icon name={tab.icon} size={21} color={on ? colors.navOn : colors.nav} />
+                  {tab.name === 'vault' ? <VaultIcon color={on ? colors.navOn : colors.nav} /> : <Icon name={tab.icon} size={21} color={on ? colors.navOn : colors.nav} />}
                   {count?.n ? (
                     <View style={[styles.count, count.accent ? styles.countAccent : null]}>
                       <Text style={[styles.countText, count.accent ? { color: '#fff' } : null]}>{count.n > 99 ? '99+' : count.n}</Text>
@@ -66,12 +71,29 @@ export function TabBar({ state, emitter, navigateToTab }: BottomTabBarProps) {
   );
 }
 
+// The Vault icon pops when a card lands in it (the end of onboarding).
+function VaultIcon({ color }: { color: string }) {
+  const pulse = usePulse((p) => p.vault);
+  const s = useSharedValue(1);
+  useEffect(() => {
+    if (!pulse) return;
+    // A once-only catch, so it's allowed a real bounce.
+    s.set(withSequence(withTiming(1.35, { duration: 120, easing: EASE_OUT }), withSpring(1, { duration: 450, dampingRatio: 0.4 })));
+  }, [pulse, s]);
+  const style = useAnimatedStyle(() => ({ transform: [{ scale: s.get() }] }));
+  return (
+    <Animated.View style={style}>
+      <Icon name="vault" size={21} color={color} />
+    </Animated.View>
+  );
+}
+
 // The collapsed Global Chat dock from the website.
 function ChatDock() {
   const s = useSession((x) => x.s);
   const unread = s ? s.chat.filter((m) => m.at > s.chatSeen && !m.mine).length : 0;
   return (
-    <Press onPress={() => router.push('/chat')} accessibilityLabel={unread ? `Global chat, ${unread} new messages` : 'Global chat'} testID="chat-dock" style={styles.dock} scaleTo={0.99}>
+    <Press onPress={() => router.push('/chat')} accessibilityLabel={unread ? `Global chat, ${plural(unread, 'new message')}` : 'Global chat'} testID="chat-dock" style={styles.dock} scaleTo={0.99}>
       <Icon name="grip" size={14} color={colors.faint} />
       <Text style={styles.dockTitle}>Global Chat</Text>
       {unread ? (

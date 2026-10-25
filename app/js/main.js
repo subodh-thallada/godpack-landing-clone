@@ -162,11 +162,12 @@ function paintSide(shell) {
     const label = $('.nav__label', a).textContent;
     if (href in counts && counts[href] != null) {
       c.hidden = false;
-      c.textContent = counts[href];
+      const n = counts[href].toLocaleString('en-US');
+      c.textContent = n;
       c.classList.toggle('is-alert', href === '/battles' && counts[href] > 0);
       a.setAttribute(
         'aria-label',
-        href === '/battles' ? `${label}, ${counts[href]} open` : `${label}, ${counts[href]} cards`,
+        href === '/battles' ? `${label}, ${n} open` : `${label}, ${n} ${counts[href] === 1 ? 'card' : 'cards'}`,
       );
     } else {
       c.hidden = true;
@@ -207,7 +208,7 @@ export function toast(message) {
   toastHost.append(t);
   setTimeout(() => {
     t.classList.add('is-leaving');
-    setTimeout(() => t.remove(), 220);
+    setTimeout(() => t.remove(), 260);
   }, 2600);
 }
 

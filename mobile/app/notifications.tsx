@@ -3,7 +3,8 @@
 import { go } from '../src/lib/nav';
 import { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
+import { staggered } from '../src/lib/motion';
 import { Icon, type IconName } from '../src/components/Icon';
 import { Empty, Press, Screen } from '../src/components/ui';
 import { since } from '../src/lib/format';
@@ -31,7 +32,7 @@ export default function Notifications() {
     <Screen title="Notifications" testID="screen-notifications">
       {list.length ? (
         list.map((n, i) => (
-          <Animated.View key={n.id} entering={FadeInDown.delay(Math.min(i, 8) * 40).duration(220)}>
+          <Animated.View key={n.id} entering={staggered(i)}>
             <Press onPress={() => go(n.href)} accessibilityLabel={`${n.title}. ${n.body}`} style={[styles.row, !n.read && { borderColor: 'rgba(157,133,255,0.45)' }]} testID="notification">
               <View style={styles.icon}>
                 <Icon name={iconFor(n.title)} size={18} color={colors.accentSoft} />

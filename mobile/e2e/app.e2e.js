@@ -21,7 +21,11 @@ const ok = (name, cond, extra = '') => {
 };
 
 async function newPage(browser) {
-  const ctx = await browser.newContext({ ...devices['iPhone 13'], deviceScaleFactor: 2 });
+  const ctx = await browser.newContext({
+    ...devices['iPhone 13'],
+    deviceScaleFactor: 2,
+    ...(process.env.VIDEO ? { recordVideo: { dir: path.join(__dirname, 'video'), size: { width: 390, height: 664 } } } : null),
+  });
   const p = await ctx.newPage();
   p.errors = [];
   p.on('pageerror', (e) => p.errors.push('pageerror ' + e.message));
@@ -46,7 +50,8 @@ const visible = async (p, testId, timeout = 4000) =>
     .waitFor({ state: 'visible', timeout })
     .then(() => true)
     .catch(() => false);
-const text = async (p, testId) => (await id(p, testId).innerText()).trim();
+// Whitespace is collapsed: Pip's lines arrive a word at a time, one element each.
+const text = async (p, testId) => (await id(p, testId).innerText()).replace(/\s+/g, ' ').trim();
 const money = (s) => parseFloat(s.replace(/[^\d.-]/g, ''));
 // Lists render in batches with staggered entrances; wait for them to settle.
 async function until(fn, timeout = 5000) {
@@ -90,12 +95,17 @@ async function ceremony(p, action, name) {
 async function onboarding(p) {
   await p.goto(BASE + '/');
   ok('first launch opens onboarding', await visible(p, 'ob-step-welcome', 20000));
+  ok('the logo intro plays first', (await p.locator('[data-testid="intro"]').count()) > 0);
+  await p.locator('[data-testid="intro"]').waitFor({ state: 'detached', timeout: 6000 }).catch(() => {});
+  ok('the intro hands over to the welcome', (await p.locator('[data-testid="intro"]').count()) === 0);
   await p.waitForTimeout(900);
+  ok('Pip introduces the pack', (await text(p, 'pip-says')).startsWith("Hi, I'm Pip"));
   await snap(p, 'welcome');
   await tap(p, 'ob-start');
 
   ok('age check shown', await visible(p, 'ob-step-age'));
   ok('progress counter starts at 1', (await text(p, 'ob-count')).startsWith('1/'));
+  await p.waitForTimeout(500);
   await snap(p, 'age');
   await tap(p, 'ob-age-yes');
 
@@ -104,65 +114,121 @@ async function onboarding(p) {
   await tap(p, 'opt-grails');
   await tap(p, 'opt-battle');
   ok('picks are counted', (await text(p, 'ob-picked')) === '2 picked');
+  await p.waitForTimeout(700);
+  ok('Pip reacts to a pick', (await text(p, 'pip-says')).includes('Battles'));
   await snap(p, 'goals');
   await tap(p, 'ob-continue');
 
-  ok('experience shown', await visible(p, 'ob-step-experience'));
-  await snap(p, 'experience');
-  await tap(p, 'opt-casual');
-  ok('single choice moves on by itself', await visible(p, 'ob-step-format'));
+  ok('format shown', await visible(p, 'ob-step-format'));
+  await p.waitForTimeout(400);
   await snap(p, 'format');
   await tap(p, 'opt-both');
-  ok('spend shown', await visible(p, 'ob-step-spend'));
-  await snap(p, 'spend');
+  ok('format moves on after the pack flips', await visible(p, 'ob-step-spend', 3000));
+
+  await p.waitForTimeout(400);
+  const box = await id(p, 'spend-slider').boundingBox();
+  // Drag the thumb across the track, then settle on $10–50.
+  await p.mouse.move(box.x + 15, box.y + box.height / 2);
+  await p.mouse.down();
+  await p.mouse.move(box.x + box.width * 0.9, box.y + box.height / 2, { steps: 12 });
+  await p.mouse.up();
+  await p.waitForTimeout(500);
+  ok('dragging the slider recommends a pack', /Master|Arena|Trainer/.test(await text(p, 'ob-spend-pack')));
   await tap(p, 'opt-mid');
-  ok('building your setup shown', await visible(p, 'ob-step-building'));
-  await p.waitForTimeout(900);
-  await snap(p, 'building');
-  ok('setup ready after the animation', await visible(p, 'ob-step-ready', 6000));
-  ok('recommendation follows the answers (both + $10–50 → Arena)', (await text(p, 'ob-recommended-name')) === 'Arena');
-  await tap(p, 'ob-safe');
-  await snap(p, 'ready');
+  await p.waitForTimeout(500);
+  ok('recommendation follows the answers (both + $10–50 → Arena)', (await text(p, 'ob-spend-pack')).startsWith('Arena'));
+  await snap(p, 'spend');
+  await tap(p, 'ob-continue');
+
+  ok('experience shown', await visible(p, 'ob-step-experience'));
+  await tap(p, 'opt-casual');
+  await p.waitForTimeout(500);
+  await snap(p, 'experience');
+  ok('experience moves on to the sealed pack', await visible(p, 'ob-step-seal', 4000));
+  ok('sealed pack is the recommendation', (await text(p, 'ob-recommended-name')) === 'Arena');
+  await id(p, 'ob-safe').click();
+  await p.waitForTimeout(700);
+  await snap(p, 'seal');
   await tap(p, 'ob-continue');
 
   ok('welcome pack opens with the website ceremony', await visible(p, 'welcome-reveal', 6000));
-  const value = await ceremony(p, 'Save it to my Vault', 'welcome-pack');
+  const value = await ceremony(p, 'Claim it', 'welcome-pack');
   ok('welcome pack reveals a value', /^\$\d/.test(value), value);
 
-  ok('save-your-pull account step shown', await visible(p, 'ob-step-account', 6000));
+  ok('the card stays on stage for sign-in', await visible(p, 'ob-step-claim', 6000));
+  ok('sign-up opens as a sheet over the scene', await visible(p, 'ob-sheet', 3000));
+  ok('the pulled card stays in view above it', await visible(p, 'ob-card'));
+  await p.waitForTimeout(900);
+  ok('Pip quotes the value', (await text(p, 'pip-says')).includes(value));
   ok('Apple sign-in offered', await visible(p, 'auth-apple'));
   ok('Google sign-in offered', await visible(p, 'auth-google'));
-  await snap(p, 'account');
+  const apple = await id(p, 'auth-apple').boundingBox();
+  const google = await id(p, 'auth-google').boundingBox();
+  ok('Apple and Google sit side by side', Math.abs(apple.y - google.y) < 2 && apple.x < google.x);
+  await snap(p, 'claim');
   await tap(p, 'auth-email');
-  await id(p, 'auth-email-input').fill('not-an-email');
-  await tap(p, 'auth-email-continue');
-  ok('bad email is rejected', (await p.getByText('Enter a valid email address').count()) > 0);
-  await id(p, 'auth-email-input').fill('collector@example.com');
-  await tap(p, 'auth-email-continue');
 
-  ok('collector name step shown', await visible(p, 'ob-step-profile'));
+  const disabled = async (t) => (await id(p, t).getAttribute('aria-disabled')) === 'true';
+  ok('email gets its own step', await visible(p, 'ob-step-email'));
+  ok('the card becomes the step icon', await visible(p, 'ob-card'));
+  ok('send is disabled until there is an email', await disabled('ob-send-code'));
+  await id(p, 'ob-email').fill('not-an-email');
+  ok('a bad email keeps send disabled', await disabled('ob-send-code'));
+  await id(p, 'ob-email').fill('collector@example.com');
+  ok('a valid email enables send', !(await disabled('ob-send-code')));
+  await p.waitForTimeout(300);
+  await snap(p, 'email');
+  await tap(p, 'ob-send-code');
+
+  ok('code step shown', await visible(p, 'ob-step-code', 3000));
+  ok('the code arrives as a banner', await visible(p, 'ob-code-banner', 4000));
+  const code = (await text(p, 'ob-code-value')).replace(/\D/g, '');
+  ok('the banner shows a 6-digit code', /^\d{6}$/.test(code), code);
+  await p.waitForTimeout(400);
+  await snap(p, 'code');
+  await id(p, 'ob-code').fill(code === '000000' ? '111111' : '000000');
+  ok('a wrong code is rejected', await visible(p, 'ob-code-error', 3000));
+  await snap(p, 'code-wrong');
+  await tap(p, 'ob-code-banner');
+  ok('tapping the banner fills the code in', (await id(p, 'ob-code').inputValue()) === code);
+
+  ok('collector name step shown', await visible(p, 'ob-step-name', 4000));
   ok('name suggested from the email', (await id(p, 'ob-handle').inputValue()) === 'collector');
+  ok('your avatar previews live', (await text(p, 'ob-avatar')).startsWith('C'));
   await id(p, 'ob-handle').fill('orbit_ann');
   ok('taken names are rejected', (await p.getByText('That name is taken').count()) > 0);
   await id(p, 'ob-handle').fill('demo_collector');
   await tap(p, 'ob-color-26b5a8');
-  await snap(p, 'profile');
+  await p.waitForTimeout(300);
+  ok('the avatar is tagged with your name', (await text(p, 'ob-owner')) === '@demo_collector');
+  await snap(p, 'name');
 
   // Relaunching mid-way keeps the sign-in.
   await p.reload();
-  ok('relaunch resumes at the name step', await visible(p, 'ob-step-profile', 15000));
+  ok('relaunch resumes at the name step', await visible(p, 'ob-step-name', 15000));
   ok('relaunch keeps the email sign-in', (await text(p, 'ob-signed-with')).includes('collector@example.com'));
   await id(p, 'ob-handle').fill('demo_collector');
   await tap(p, 'ob-continue');
 
   ok('notification primer shown', await visible(p, 'ob-step-notify'));
+  ok('a lock-screen preview shows what to expect', await visible(p, 'ob-phone', 3000));
+  await p.waitForTimeout(2300);
   await snap(p, 'notify');
-  await tap(p, 'ob-notify-later');
+  await id(p, 'ob-notify-later').click();
+  // The stage opens into the app while the card drops into the Vault.
+  ok('the stage opens into the app', await visible(p, 'curtain', 3000));
+  await p.waitForTimeout(380);
+  await p.screenshot({ path: path.join(OUT, `${String(++shot).padStart(2, '0')}-opening-1.png`) });
+  await p.waitForTimeout(280);
+  await p.screenshot({ path: path.join(OUT, `${String(++shot).padStart(2, '0')}-opening-2.png`) });
+  await p.waitForTimeout(280);
+  await p.screenshot({ path: path.join(OUT, `${String(++shot).padStart(2, '0')}-opening-3.png`) });
 }
 
 async function tour(p) {
   ok('lands on Packs', await visible(p, 'screen-packs', 8000));
-  ok('tour starts on first visit', await visible(p, 'tour-tip', 6000));
+  ok('the opening finishes', await until(async () => (await p.locator('[data-testid="curtain"]').count()) === 0, 5000));
+  ok('tour starts after the opening', await visible(p, 'tour-tip', 6000));
   const titles = [];
   for (let i = 0; i < 6; i++) {
     await p.waitForTimeout(500);
@@ -432,7 +498,7 @@ async function sidePaths(browser) {
   await visible(p, 'ob-start', 20000);
   await tap(p, 'ob-have-account');
   await tap(p, 'ob-age-yes');
-  ok('returning path skips the questions', await visible(p, 'ob-step-account'));
+  ok('returning path skips the questions', await visible(p, 'ob-step-claim'));
   ok('returning path has no skip', (await all(p, 'auth-skip').count()) === 0);
   await tap(p, 'auth-apple');
   ok('returning path asks about notifications', await visible(p, 'ob-step-notify'));
@@ -449,6 +515,7 @@ async function sidePaths(browser) {
   await tap(q, 'ob-start');
   await tap(q, 'ob-age-no');
   ok('under-18 answer stops onboarding', await visible(q, 'ob-step-too-young'));
+  await q.waitForTimeout(800);
   await snap(q, 'too-young');
   await q.reload();
   ok('under-18 answer is remembered', await visible(q, 'ob-step-too-young', 15000));

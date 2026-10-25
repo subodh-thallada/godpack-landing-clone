@@ -5,11 +5,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { FlatList, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
-import Animated, { FadeIn, FadeInDown, SlideInDown } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
+import { T_SETTLE, fadeIn, scaleIn, sheetIn, sheetOut } from '../../src/lib/motion';
 import { Icon } from '../../src/components/Icon';
 import { Thumb } from '../../src/components/Thumb';
 import { Button, Chip, Empty, Press, Stat, ViewHead } from '../../src/components/ui';
-import { money } from '../../src/lib/format';
+import { money, plural } from '../../src/lib/format';
 import { success, tap } from '../../src/lib/haptics';
 import { toast } from '../../src/lib/toast';
 import { SELL_RATE, type VaultItem, cardOf, saleTimer, sell, useSession, vaultValue } from '../../src/store/session';
@@ -61,11 +62,11 @@ export default function Vault() {
         <Stat label="Cards" value={s?.vault.length ?? 0} testID="vault-count" />
         <Stat label="Vault value" value={money(vaultValue(s))} money />
         <View style={{ flex: 1 }} />
-        <Button label="Sell all" icon="cash" variant="secondary" onPress={() => (s?.vault.length ? setConfirmAll(true) : toast('Your Vault is empty'))} testID="vault-sell-all" />
+        <Button label="Sell all" icon="cash" variant="secondary" disabled={!s?.vault.length} onPress={() => setConfirmAll(true)} testID="vault-sell-all" />
       </View>
       {confirmAll && s ? (
-        <Animated.View entering={FadeIn.duration(160)} style={styles.confirm} testID="confirm-sell-all">
-          <Text style={{ color: colors.text, fontWeight: '700', fontSize: 16 }}>Sell all {s.vault.length} cards?</Text>
+        <Animated.View entering={fadeIn} style={styles.confirm} testID="confirm-sell-all">
+          <Text style={{ color: colors.text, fontWeight: '700', fontSize: 16 }}>Sell all {plural(s.vault.length, 'card')}?</Text>
           <Text style={{ color: colors.muted, fontSize: 14 }}>You'll get {money(vaultValue(s) * SELL_RATE)} after the 5% sell-back fee.</Text>
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
             <Button label="Cancel" variant="secondary" onPress={() => setConfirmAll(false)} style={{ flex: 1 }} />
@@ -106,10 +107,12 @@ export default function Vault() {
         <Press onPress={() => setSortOpen((o) => !o)} style={styles.sort} testID="vault-sort" accessibilityLabel={`Sort: ${sort}`} accessibilityState={{ expanded: sortOpen }}>
           <Text style={styles.sortLabel}>Sort</Text>
           <Text style={{ color: colors.text, fontWeight: '600', fontSize: 14, flex: 1 }}>{sort}</Text>
-          <Icon name="chevronDown" size={16} color={colors.muted} />
+          <Animated.View style={[T_SETTLE, { transform: [{ rotate: sortOpen ? '180deg' : '0deg' }] }]}>
+            <Icon name="chevronDown" size={16} color={colors.muted} />
+          </Animated.View>
         </Press>
         {sortOpen ? (
-          <Animated.View entering={FadeInDown.duration(160)} style={styles.menu}>
+          <Animated.View entering={scaleIn} style={[styles.menu, { transformOrigin: 'top' }]}>
             {SORTS.map((o) => (
               <Press
                 key={o}
@@ -147,11 +150,13 @@ export default function Vault() {
             action={!s?.vault.length ? <Button label="Open a pack" size="sm" onPress={() => router.navigate('/packs')} /> : undefined}
           />
         }
-        renderItem={({ item: v, index }) => {
+        renderItem={({ item: v }) => {
           const c = cardOf(v);
           const on = selected.includes(v.uid);
           return (
-            <Animated.View entering={FadeInDown.delay(Math.min(index, 10) * 35).duration(240)}>
+            // No entrance per tile: rows are recycled as you scroll, so it would
+            // replay every time one comes back into view.
+            <View>
               <Press
                 onPress={() => press(v)}
                 accessibilityLabel={`${c.name}, ${money(v.value)}${selecting && on ? ', selected' : ''}`}
@@ -171,12 +176,12 @@ export default function Vault() {
                   </Text>
                 </View>
               </Press>
-            </Animated.View>
+            </View>
           );
         }}
       />
       {selecting ? (
-        <Animated.View entering={SlideInDown.duration(240)} style={styles.tray} testID="sell-tray">
+        <Animated.View entering={sheetIn} exiting={sheetOut} style={styles.tray} testID="sell-tray">
           <View style={{ flex: 1 }}>
             <Text style={{ color: colors.text, fontWeight: '700', fontSize: 16, fontVariant: ['tabular-nums'] }} testID="selected-count">
               {selected.length} selected
@@ -190,7 +195,7 @@ export default function Vault() {
             onPress={() => {
               const got = sell(selected);
               success();
-              toast(`Sold ${selected.length} card${selected.length > 1 ? 's' : ''} for ${money(got)}`);
+              toast(`Sold ${plural(selected.length, 'card')} for ${money(got)}`);
               toggleSelect(false);
             }}
             testID="sell-selected"

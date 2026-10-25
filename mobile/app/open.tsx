@@ -5,13 +5,14 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
+import { fadeIn, staggered } from '../src/lib/motion';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Thumb } from '../src/components/Thumb';
 import { Button, Press } from '../src/components/ui';
 import { cardById, packById } from '../src/data';
 import Ceremony from '../src/dom/Ceremony';
-import { money } from '../src/lib/format';
+import { money, plural } from '../src/lib/format';
 import { success } from '../src/lib/haptics';
 import { toast } from '../src/lib/toast';
 import { SELL_RATE, type VaultItem, bestOf, sell, useSession } from '../src/store/session';
@@ -51,7 +52,7 @@ export default function Open() {
   const onAction = async (i: number) => {
     if (several) {
       if (i === 1) after.current = 'results';
-      else toast(`${pulls.length} cards added to your Vault`);
+      else toast(`${plural(pulls.length, 'card')} added to your Vault`);
       return;
     }
     if (i === 0) {
@@ -99,7 +100,7 @@ function Results({ pulls, packName, packPrice, onDone }: { pulls: VaultItem[]; p
   const left = sorted.filter((p) => inVault(p.uid));
   return (
     <View style={[styles.full, { backgroundColor: colors.bg, paddingTop: insets.top + 8 }]} testID="results">
-      <Animated.View entering={FadeIn.duration(200)} style={styles.head}>
+      <Animated.View entering={fadeIn} style={styles.head}>
         <Text style={{ color: colors.text, fontSize: 20, fontWeight: '700', flex: 1 }}>
           {pulls.length} {packName} packs
         </Text>
@@ -119,7 +120,7 @@ function Results({ pulls, packName, packPrice, onDone }: { pulls: VaultItem[]; p
           const c = cardById(p.id);
           const sold = !inVault(p.uid);
           return (
-            <Animated.View key={p.uid} entering={FadeInDown.delay(i * 40).duration(260)} style={[styles.tile, { width: tileW }, sold && { opacity: 0.45 }]} testID="result-tile">
+            <Animated.View key={p.uid} entering={staggered(i)} style={[styles.tile, { width: tileW }, sold && { opacity: 0.45 }]} testID="result-tile">
               <Thumb id={c.id} graded={p.graded} tier={p.tier} width={p.graded ? tileW - 34 : tileW - 24} />
               <Text style={styles.value}>{money(p.value)}</Text>
               <Text style={styles.name} numberOfLines={1}>
@@ -148,7 +149,7 @@ function Results({ pulls, packName, packPrice, onDone }: { pulls: VaultItem[]; p
           disabled={!left.length}
           onPress={() => {
             const got = sell(left.map((p) => p.uid));
-            toast(`Sold ${left.length} cards for ${money(got)}`);
+            toast(`Sold ${plural(left.length, 'card')} for ${money(got)}`);
             onDone();
           }}
           style={{ flex: 1 }}

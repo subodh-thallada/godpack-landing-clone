@@ -8,7 +8,7 @@ import { PortfolioChart } from '../../src/components/PortfolioChart';
 import { Thumb } from '../../src/components/Thumb';
 import { Avatar, Button, Empty, IconButton, Panel, Press, Screen, Stat } from '../../src/components/ui';
 import { packById } from '../../src/data';
-import { money, since } from '../../src/lib/format';
+import { money, since, num, plural } from '../../src/lib/format';
 import { toast } from '../../src/lib/toast';
 import { cardOf, useSession } from '../../src/store/session';
 import { colors, radius, type } from '../../src/theme';
@@ -39,10 +39,10 @@ export default function MyProfile() {
       </View>
       <View style={styles.stats}>
         <Stat center label="Vaulted" value={s.vault.length} />
-        <Press onPress={() => router.push({ pathname: '/connections', params: { tab: 'followers' } })} accessibilityLabel={`${s.followers.length} followers`} style={{ flex: 1 }} testID="my-followers">
+        <Press onPress={() => router.push({ pathname: '/connections', params: { tab: 'followers' } })} accessibilityLabel={plural(s.followers.length, 'follower')} style={{ flex: 1 }} testID="my-followers">
           <Stat center label="Followers" value={s.followers.length} />
         </Press>
-        <Press onPress={() => router.push({ pathname: '/connections', params: { tab: 'following' } })} accessibilityLabel={`${s.following.length} following`} style={{ flex: 1 }} testID="my-following">
+        <Press onPress={() => router.push({ pathname: '/connections', params: { tab: 'following' } })} accessibilityLabel={`${num(s.following.length)} following`} style={{ flex: 1 }} testID="my-following">
           <Stat center label="Following" value={s.following.length} />
         </Press>
       </View>
@@ -57,7 +57,7 @@ export default function MyProfile() {
         <Panel style={{ flex: 1, gap: 4 }}>
           <Text style={type.caps}>Packs opened</Text>
           <Text style={styles.big} testID="packs-opened">
-            {s.opened}
+            {num(s.opened)}
           </Text>
         </Panel>
         <Panel style={{ flex: 1.3, gap: 4 }}>

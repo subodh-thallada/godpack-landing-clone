@@ -25,12 +25,14 @@ cards or shipping.
 ## Onboarding and tour
 
 The research and the flow are in [docs/ONBOARDING.md](docs/ONBOARDING.md).
-In short: welcome → 18+ check → three quick questions → "building your
-setup" → the recommended setup (Safe mode and a spending reminder you can
-toggle) → a free welcome pack opened with the real ceremony → sign in with
-Apple, Google or email (or skip) → collector name → notification primer. No
-payment is asked for anywhere. Then a six-step spotlight tour: wallet,
-packs, battles, vault, feed, rewards — skippable, replayable from Settings.
+In short: one continuous scene. The logo lights up and drops into a sealed
+pack, which reacts to an 18+ check and a few quick questions while Pip, the
+logo given a face, comments. You tear it open with the real ceremony, save
+the card through a sign-up sheet (email with a six-digit code, Apple, Google,
+or skip), pick a collector name with a live avatar, see a lock-screen preview
+of notifications, and the stage irises open into the app as the card drops
+into your Vault. No payment is asked for anywhere. Then a six-step spotlight
+tour, skippable and replayable from Settings.
 
 ### Sign-in
 
@@ -41,7 +43,8 @@ packs, battles, vault, feed, rewards — skippable, replayable from Settings.
   `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`, `EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID`
   and `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`; without them it creates a demo
   account on the device.
-- **Email:** demo only (no email is sent).
+- **Email:** demo only. No email is sent; the six-digit code shows up as an
+  on-screen banner instead.
 
 ## Run it
 
@@ -70,6 +73,12 @@ BASE=http://localhost:4180 node e2e/app.e2e.js   # Playwright, iPhone-sized, scr
 The end-to-end test needs Playwright (`npm i -D playwright` and
 `npx playwright install chromium`).
 
+To stress-test layouts in development, open any screen on the web with
+`?data=worst` (or `empty`, `one`): it swaps in worst-case data (a 16-letter
+handle, a long email, a seven-figure balance, 1,284 cards, 23 alerts, an
+unbreakable link in chat) and shows a switch to flip between data sets.
+Builds never include it.
+
 ## Layout
 
 ```
@@ -78,7 +87,9 @@ app/               screens (expo-router): onboarding, signin, (tabs)/…, open, 
 src/components/    UI kit, header, tab bar + chat dock, store, hits, tour, sign-in
 src/dom/           the website's pack-opening ceremony as a DOM component
 src/store/         demo account (session) and preferences, persisted on device
-src/lib/           recommendations, tour steps, auth, notifications, navigation
+src/onboarding/    the onboarding scene: stage, Pip, intro, sign-up sheet, code field, previews
+src/lib/           motion tokens, recommendations, tour steps, auth, notifications, navigation
+src/dev/           development-only worst-case data (?data=worst)
 src/data/          cards, packs and odds, collectors, battle draws
 e2e/               Playwright end-to-end test
 ```

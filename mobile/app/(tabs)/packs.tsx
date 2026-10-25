@@ -3,7 +3,8 @@
 // the same page as the website, plus a short getting-started list.
 import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeInLeft, LinearTransition, useReducedMotion } from 'react-native-reanimated';
+import Animated, { useReducedMotion } from 'react-native-reanimated';
+import { enterBack, reflow } from '../../src/lib/motion';
 import { HitCard, TopTile } from '../../src/components/Hits';
 import { Icon } from '../../src/components/Icon';
 import { PackStore } from '../../src/components/PackStore';
@@ -49,7 +50,7 @@ export default function Packs() {
         <SectionHead icon="flame" title="Recent Hits" />
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingRight: 16 }} style={{ marginRight: -16 }} testID="recent-hits">
           {hits.map((h, i) => (
-            <Animated.View key={h.uid} entering={i === 0 && live.length ? FadeInLeft.duration(420) : undefined} layout={LinearTransition.duration(380)}>
+            <Animated.View key={h.uid} entering={i === 0 && live.length ? enterBack : undefined} layout={reflow}>
               <HitCard hit={h} />
             </Animated.View>
           ))}

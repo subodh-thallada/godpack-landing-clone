@@ -4,7 +4,8 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
-import Animated, { FadeIn, ZoomIn } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
+import { fadeIn, scaleIn } from '../../src/lib/motion';
 import { Icon } from '../../src/components/Icon';
 import { Thumb } from '../../src/components/Thumb';
 import { Button, Chip, Field, Sheet } from '../../src/components/ui';
@@ -71,7 +72,7 @@ export default function CardDetail() {
     <Sheet title={shipping ? `Ship ${c.name}` : c.name} testID="card-sheet">
       {!shipping ? (
         <>
-          <Animated.View entering={ZoomIn.springify().damping(15)} style={{ alignItems: 'center', paddingVertical: 6 }}>
+          <Animated.View entering={scaleIn} style={{ alignItems: 'center', paddingVertical: 6 }}>
             <Thumb id={c.id} graded={item.graded} tier={item.tier} width={w} large />
           </Animated.View>
           <View style={{ alignItems: 'center', gap: 4 }}>
@@ -109,7 +110,7 @@ export default function CardDetail() {
           </View>
         </>
       ) : (
-        <Animated.View entering={FadeIn.duration(180)} style={{ gap: 12 }} testID="ship-form">
+        <Animated.View entering={fadeIn} style={{ gap: 12 }} testID="ship-form">
           <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
             <Text style={[type.caps, { marginRight: 4 }]}>Country</Text>
             <Chip label={`US · $${SHIP_COST.US}`} on={addr.country === 'US'} onPress={() => setAddr((a) => ({ ...a, country: 'US' }))} testID="ship-us" />

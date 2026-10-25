@@ -1,213 +1,628 @@
-// First-run onboarding, in the website's visual language. A few quick
-// questions (each one changes the setup), a short "building your setup"
-// moment, the recommended setup, a free welcome pack opened with the
-// website's own ceremony, then an account (Apple, Google, email or skip),
-// a collector name and a notification primer. No payment anywhere.
-// See docs/ONBOARDING.md for the research behind each step.
+// First-run onboarding as one continuous scene. The logo lights up and drops
+// into a sealed pack that stays on stage the whole way, reacting to every
+// answer, while Pip (the logo's hexagon, given a face) comments on what you
+// pick. You tear the pack open with the website's ceremony, and the card you
+// pulled travels with you through sign-up: over the sign-up sheet, as the
+// icon of the email-code steps, tucked behind your new avatar, and in the
+// lock-screen preview. Then the stage irises open into the app as the card
+// drops into your Vault.
+// No payment anywhere. See docs/ONBOARDING.md for the research behind it.
+import { BlurView } from 'expo-blur';
 import { router } from 'expo-router';
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
-import Animated, {
-  Easing,
-  FadeIn,
-  FadeInDown,
-  FadeOut,
-  SlideInLeft,
-  SlideInRight,
-  cancelAnimation,
-  interpolate,
-  useAnimatedStyle,
-  useReducedMotion,
-  useSharedValue,
-  withDelay,
-  withRepeat,
-  withTiming,
-} from 'react-native-reanimated';
+import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
+import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Defs, Ellipse, RadialGradient, Stop } from 'react-native-svg';
 import { AuthButtons } from '../src/components/AuthButtons';
-import { HitCard } from '../src/components/Hits';
-import { Icon, Mark } from '../src/components/Icon';
-import { PackArt, Thumb } from '../src/components/Thumb';
-import { Avatar, Button, Caps, Field, IconButton, Press, Toggle } from '../src/components/ui';
-import { cardById, packById, pullsFor } from '../src/data';
+import { playCurtain } from '../src/components/Curtain';
+import { Icon, type IconName, Mark } from '../src/components/Icon';
+import { Thumb } from '../src/components/Thumb';
+import { Button, Caps, Field, IconButton, Press, Toggle } from '../src/components/ui';
+import { cardById } from '../src/data';
 import Ceremony from '../src/dom/Ceremony';
-import { type Identity, TAKEN, suggestHandle, validHandle } from '../src/lib/auth';
+import { type Identity, TAKEN, suggestHandle, validEmail, validHandle } from '../src/lib/auth';
 import { money } from '../src/lib/format';
-import { bump, tap, warn } from '../src/lib/haptics';
+import { bump, success, tap, warn } from '../src/lib/haptics';
+import { DUR, EASE_OUT, SETTLE, bannerIn, bannerOut, enterBack, enterFwd, exitBack, exitFwd, fadeIn, fadeOut, dropIn, dropInLate, staggered } from '../src/lib/motion';
 import { requestNotifications, setDailyReminder } from '../src/lib/notifications';
-import { GOALS, recommend } from '../src/lib/recommend';
+import { GOALS, SPEND_LIMIT, recommend } from '../src/lib/recommend';
 import { toast } from '../src/lib/toast';
-import {
-  type Experience,
-  type Format,
-  type Goal,
-  type Spend,
-  setAnswers,
-  setPrefs,
-  usePrefs,
-} from '../src/store/prefs';
+import { AuthSheet } from '../src/onboarding/AuthSheet';
+import { Bubble } from '../src/onboarding/Bubble';
+import { CODE_LENGTH, CodeInput } from '../src/onboarding/CodeInput';
+import { Intro } from '../src/onboarding/Intro';
+import { Mascot, type Mood } from '../src/onboarding/Mascot';
+import { SpendSlider } from '../src/onboarding/SpendSlider';
+import { type Pose, Stage, geometry, heroBottom } from '../src/onboarding/Stage';
+import { type Experience, type Format, type Goal, type Spend, setAnswers, setPrefs, usePrefs } from '../src/store/prefs';
 import { signIn, welcomePull } from '../src/store/session';
-import { AVATAR_COLORS, COLOR_NAMES, colors, radius, type } from '../src/theme';
+import { AVATAR_COLORS, COLOR_NAMES, colors, radius, tierColor, type } from '../src/theme';
 
-type StepId =
-  | 'welcome'
-  | 'age'
-  | 'goals'
-  | 'experience'
-  | 'format'
-  | 'spend'
-  | 'building'
-  | 'ready'
-  | 'pack'
-  | 'account'
-  | 'profile'
-  | 'notify';
-const NEW: StepId[] = [
-  'welcome',
-  'age',
-  'goals',
-  'experience',
-  'format',
-  'spend',
-  'building',
-  'ready',
-  'pack',
-  'account',
-  'profile',
-  'notify',
-];
-const RETURNING: StepId[] = ['welcome', 'age', 'account', 'notify'];
+type StepId = 'welcome' | 'age' | 'goals' | 'format' | 'spend' | 'experience' | 'seal' | 'tear' | 'claim' | 'email' | 'code' | 'name' | 'notify';
+const NEW: StepId[] = ['welcome', 'age', 'goals', 'format', 'spend', 'experience', 'seal', 'tear', 'claim', 'email', 'code', 'name', 'notify'];
+const RETURNING: StepId[] = ['welcome', 'age', 'claim', 'email', 'code', 'notify'];
 const CEREMONY_PACKS = ['arena', 'master', 'starter', 'trainer'];
+const PIP_ROW = 74;
+
+const POSE: Record<StepId, Pose> = {
+  welcome: 'welcome',
+  age: 'ask',
+  goals: 'ask',
+  format: 'ask',
+  spend: 'spend',
+  experience: 'ask',
+  seal: 'seal',
+  tear: 'seal',
+  claim: 'claim',
+  email: 'account',
+  code: 'account',
+  name: 'profile',
+  notify: 'notify',
+};
+
+const GOAL_ICON: Record<Goal, IconName> = { grails: 'sparkles', collect: 'grid', battle: 'battles', slabs: 'shield', flip: 'cash' };
+const GOAL_LINE: Record<Goal, string> = {
+  grails: 'Chasing grails? Bold. I respect it.',
+  collect: 'A collector! Every card finds a home.',
+  battle: "Battles? Oh, it's on.",
+  slabs: 'Graded and sealed. Very fancy.',
+  flip: 'Quick flips, quick wins.',
+};
+const FORMAT_LINE: Record<Format, string> = {
+  raw: 'Raw it is — cheaper packs, more rips.',
+  graded: 'Slabs! Already graded, already sealed.',
+  both: 'Why choose? I like your style.',
+};
+const SPENDS: { id: Spend; label: string; line: string }[] = [
+  { id: 'look', label: 'Just looking', line: "Just looking is fine — your first pack's free." },
+  { id: 'low', label: 'Under $10', line: 'Starter packs are a dollar. Easy.' },
+  { id: 'mid', label: '$10–50', line: 'Trainer and Arena territory.' },
+  { id: 'high', label: '$50+', line: 'Master packs. Big energy.' },
+];
+const EXPERIENCE: { id: Experience; label: string; line: string }[] = [
+  { id: 'new', label: "I'm new", line: "Then Safe mode's on — a higher floor, same top prizes." },
+  { id: 'casual', label: 'A few times', line: 'Nice. You know the drill.' },
+  { id: 'serious', label: 'All the time', line: "A pro. I'll stay out of your way." },
+];
+const GLOW: Record<string, string> = { starter: '#39b4ff', trainer: '#9d85ff', arena: '#ff5caa', master: '#ffc24b' };
+
+const newCode = () => String(Math.floor(100000 + Math.random() * 900000));
+
+// Where to pick up after a restart: the saved step, or the nearest earlier
+// one whose inputs still exist.
+function resumeStep(): StepId {
+  const saved = usePrefs.getState();
+  let id = NEW[Math.min(saved.step, NEW.length - 1)] ?? 'welcome';
+  const after = (s: StepId) => NEW.indexOf(id) > NEW.indexOf(s);
+  if (id === 'tear' || (after('tear') && !saved.welcome)) id = 'seal';
+  if (id === 'email' || id === 'code') id = 'claim';
+  if ((id === 'name' || id === 'notify') && !saved.draft) id = 'claim';
+  return id;
+}
 
 export default function Onboarding() {
-  const saved = usePrefs.getState();
-  const blocked = usePrefs((p) => p.blocked);
-  const draft = usePrefs((p) => p.draft);
-  const [mode, setMode] = useState<'new' | 'returning'>('new');
-  const steps = mode === 'new' ? NEW : RETURNING;
-  // Resume where you left off. The setup animation replays from its start,
-  // and the name step needs an account, so without one resume at sign-in.
-  const [index, setIndex] = useState(() => {
-    let i = Math.min(saved.step, NEW.length - 1);
-    if (NEW[i] === 'building') i += 1;
-    if ((NEW[i] === 'profile' || NEW[i] === 'notify') && !saved.draft) i = NEW.indexOf('account');
-    return i;
-  });
-  const [dir, setDir] = useState<1 | -1>(1);
-  const moved = useRef(false);
+  const { width: W, height: H } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const step = steps[index];
+  const reduced = useReducedMotion();
+  const prefs = usePrefs();
+  const { answers, blocked, draft, welcome } = prefs;
+  const [mode, setMode] = useState<'new' | 'returning'>('new');
+  const [step, setStep] = useState<StepId>(resumeStep);
+  const [intro, setIntro] = useState(() => step === 'welcome' && !blocked);
+  const [dormant, setDormant] = useState(intro);
+  const [viaEmail, setViaEmail] = useState(draft?.provider === 'email');
+  const steps = (mode === 'new' ? NEW : RETURNING).filter((s) => viaEmail || (s !== 'email' && s !== 'code'));
+  const index = Math.max(0, steps.indexOf(step));
+  const [dir, setDir] = useState<1 | -1>(1);
+  const [line, setLine] = useState<string | null>(null);
+  const [mood, setMood] = useState<Mood>('happy');
+  const [hop, setHop] = useState(0);
+  const [handle, setHandle] = useState(draft?.handle ?? '');
+  const [sheetH, setSheetH] = useState(0);
+  // Email sign-up: the address, the code we "sent", what's been typed.
+  const [email, setEmail] = useState(draft?.email ?? '');
+  const [code, setCode] = useState('');
+  const [entered, setEntered] = useState('');
+  const [codeState, setCodeState] = useState<'idle' | 'error' | 'ok'>('idle');
+  const [busy, setBusy] = useState(false);
+  const [banner, setBanner] = useState(false);
+  const claimed = useRef(false);
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const later = (fn: () => void, ms: number) => timers.current.push(setTimeout(fn, ms));
+  useEffect(() => () => timers.current.forEach(clearTimeout), []);
+
+  const pose: Pose = mode === 'returning' && (step === 'age' || step === 'claim') ? 'ask' : POSE[step];
 
   useEffect(() => {
-    if (mode === 'new') setPrefs({ step: index });
-  }, [index, mode]);
+    if (mode === 'new') setPrefs({ step: NEW.indexOf(step) });
+    setLine(null);
+    setMood(step === 'welcome' || step === 'seal' ? 'happy' : 'idle');
+  }, [step, mode]);
 
-  const goTo = (to: number) => {
-    moved.current = true;
-    setDir(to > index ? 1 : -1);
-    setIndex(Math.max(0, Math.min(steps.length - 1, to)));
+  const setup = useMemo(() => recommend(answers), [answers]);
+  const card = welcome ? cardById(welcome.id) : null;
+  const myCard = card && welcome && mode === 'new' ? { id: card.id, tier: welcome.tier, name: card.name } : null;
+
+  const goTo = (to: StepId) => {
+    const list = to === 'email' || to === 'code' ? (mode === 'new' ? NEW : RETURNING) : steps;
+    setDir(list.indexOf(to) >= list.indexOf(step) ? 1 : -1);
+    setStep(to);
   };
-  const next = () => goTo(index + 1);
+  const next = (from: StepId = step, list: StepId[] = steps) => goTo(list[Math.min(list.indexOf(from) + 1, list.length - 1)]);
   const back = () => {
-    if (index === 1 && mode === 'returning') setMode('new');
-    // The setup animation moves on by itself, so going back skips over it.
-    let to = index - 1;
-    if (steps[to] === 'building') to -= 1;
-    goTo(to);
+    if (step === 'age' && mode === 'returning') setMode('new');
+    let i = index - 1;
+    if (steps[i] === 'tear') i -= 1;
+    if (step === 'code') setBanner(false);
+    goTo(steps[Math.max(0, i)]);
+  };
+  // Pip reacts: a line, a face and a hop.
+  const react = (text: string, m: Mood = 'happy') => {
+    setLine(text);
+    setMood(m);
+    setHop((h) => h + 1);
+  };
+
+  // Signed in by any route: keep the identity, then name yourself (new) or
+  // go straight to notifications (returning).
+  const identified = (id: Identity) => {
+    const h = suggestHandle(id.name, id.email);
+    setPrefs({ draft: { ...id, handle: h, color: draft?.color ?? AVATAR_COLORS[0] } });
+    setHandle(h);
+    const list = (mode === 'new' ? NEW : RETURNING).filter((s) => id.provider === 'email' || (s !== 'email' && s !== 'code'));
+    setViaEmail(id.provider === 'email');
+    goTo(list[list.indexOf(id.provider === 'email' ? 'code' : 'claim') + 1]);
+  };
+
+  const sendCode = () => {
+    if (!validEmail(email) || busy) return;
+    setBusy(true);
+    bump('light');
+    later(() => {
+      const c = newCode();
+      setCode(c);
+      setEntered('');
+      setCodeState('idle');
+      setBusy(false);
+      setBanner(false);
+      goTo('code');
+      // The "email" lands a moment later as a banner up top.
+      later(() => {
+        setBanner(true);
+        react('There it is, up top. Tap it and I’ll fill it in.', 'wow');
+      }, 1100);
+    }, 650);
+  };
+
+  const verify = (value: string) => {
+    setBusy(true);
+    later(() => {
+      setBusy(false);
+      if (value === code) {
+        setCodeState('ok');
+        setBanner(false);
+        success();
+        react('Verified. Nice and safe.', 'happy');
+        later(() => identified({ name: '', email: email.trim().toLowerCase(), provider: 'email', demo: true }), 420);
+      } else {
+        setCodeState('error');
+        setEntered('');
+        warn();
+        react("Hmm, that's not it. It's in the banner.", 'think');
+      }
+    }, 450);
+  };
+
+  const onCode = (v: string) => {
+    setEntered(v);
+    if (codeState === 'error') setCodeState('idle');
+    if (v.length === CODE_LENGTH && !busy) verify(v);
   };
 
   const finish = (notifications: 'on' | 'off') => {
     const p = usePrefs.getState();
     const d = p.draft;
-    const handle = d?.handle || suggestHandle(d?.name ?? '', d?.email);
-    signIn(
-      {
-        handle,
-        name: d?.name || handle,
-        color: d?.color ?? AVATAR_COLORS[0],
-        provider: d?.provider ?? 'guest',
-        email: d?.email,
-      },
-      mode === 'new' ? p.welcome : null,
-    );
-    // Safe mode and the reminder were already set on the setup screen.
-    setPrefs({
-      onboarded: true,
-      tourRequested: true,
-      tourDone: false,
-      step: 0,
-      pack: recommend(p.answers).packIndex,
-      notifications,
-      welcome: null,
-      draft: null,
-    });
+    const h = d?.handle || suggestHandle(d?.name ?? '', d?.email);
+    signIn({ handle: h, name: d?.name || h, color: d?.color ?? AVATAR_COLORS[0], provider: d?.provider ?? 'guest', email: d?.email }, mode === 'new' ? p.welcome : null);
+    setPrefs({ onboarded: true, tourRequested: true, tourDone: false, step: 0, pack: recommend(p.answers).packIndex, notifications, welcome: null, draft: null });
+    // The stage opens into the app and the card drops into the Vault.
+    const g = geometry('notify', W, H, insets.top);
+    playCurtain(mode === 'new' && p.welcome ? { id: p.welcome.id, tier: p.welcome.tier } : null, { x: g.card.cx - 60, y: g.card.cy - 100, w: 120 }, { x: g.card.cx, y: g.card.cy });
+    success();
     router.replace('/packs');
   };
 
-  let body: ReactNode;
-  if (blocked) body = <TooYoung />;
-  else if (step === 'welcome')
-    body = (
-      <Welcome
-        onStart={() => {
-          moved.current = true;
-          setMode('new');
-          setDir(1);
-          setIndex(1);
-        }}
-        onReturning={() => {
-          moved.current = true;
-          setMode('returning');
-          setDir(1);
-          setIndex(1);
-        }}
-      />
-    );
-  else if (step === 'age')
-    body = (
-      <Age
-        onYes={() => {
-          setAnswers({ adult: true });
-          next();
-        }}
-        onNo={() => {
-          warn();
-          setPrefs({ blocked: true });
-        }}
-      />
-    );
-  else if (step === 'goals') body = <Goals onNext={next} />;
-  else if (step === 'experience') body = <ExperienceStep onNext={next} />;
-  else if (step === 'format') body = <FormatStep onNext={next} />;
-  else if (step === 'spend') body = <SpendStep onNext={next} />;
-  else if (step === 'building') body = <Building onDone={next} />;
-  else if (step === 'ready') body = <Ready onNext={next} />;
-  else if (step === 'pack') body = <WelcomePack onNext={next} onBack={back} />;
-  else if (step === 'account')
-    body = (
-      <Account
-        returning={mode === 'returning'}
-        onIdentity={(id: Identity) => {
-          setPrefs({
-            draft: { ...id, handle: suggestHandle(id.name, id.email), color: draft?.color ?? AVATAR_COLORS[0] },
-          });
-          bump('medium');
-          next();
-        }}
-      />
-    );
-  else if (step === 'profile') body = <ProfileStep onNext={next} />;
-  else body = <Notify onDone={finish} />;
+  // ---- what Pip says on each step ----
+  const says: Record<StepId, string> = {
+    welcome: "Hi, I'm Pip. See that pack? It's yours — let's set it up.",
+    age: 'Quick one before we start.',
+    goals: 'Pick as many as you like. Each one charms your pack.',
+    format: 'Raw cards or graded slabs? Watch the pack.',
+    spend: "Drag to what feels comfy. You won't pay anything.",
+    experience: 'Have you opened packs before?',
+    seal: `Sealed. One ${setup.pack.name} pack, just for you.`,
+    tear: '',
+    claim: mode === 'returning' ? "Welcome back! Log in and I'll find your stuff." : myCard && welcome ? `${money(welcome.value)}! Let's keep it safe.` : "Let's save your setup.",
+    email: "I'll send you a code. It's a demo, so I'll show it to you.",
+    code: 'Sending it now…',
+    name: 'What should other collectors call you?',
+    notify: 'Want a ping when it ships, or when someone joins your battle?',
+  };
 
-  // The welcome screen and the ceremony fill the screen; other steps share the header.
-  const chrome = !blocked && step !== 'welcome' && step !== 'pack';
+  const hero = heroBottom(pose, W, H, insets.top);
+  // On the sign-up step Pip sits on the sheet's top edge, if there's room.
+  const onSheet = step === 'claim' && sheetH > 0;
+  const sheetPip = H - sheetH - PIP_ROW + 8;
+  const pipTop = onSheet ? Math.max(hero - 6, sheetPip) : hero;
+  const pipHidden = onSheet && sheetPip < hero - 24;
+  const contentTop = hero + PIP_ROW;
+  const chrome = !blocked && step !== 'welcome' && step !== 'tear';
   const progress = steps.length > 1 ? index / (steps.length - 1) : 0;
+  const tint = step === 'welcome' ? colors.primary : pose === 'claim' || pose === 'account' || pose === 'profile' || pose === 'notify' ? (welcome && mode === 'new' ? tierColor[welcome.tier] : colors.primary) : GLOW[setup.pack.id];
+  const charms = answers.goals.map((g) => GOAL_ICON[g]);
+  const clean = handle.toLowerCase();
+
+  let body: ReactNode = null;
+  let footer: ReactNode = null;
+  if (blocked) {
+    body = (
+      <Title sub="You need to be 18 or older to use Godpack, so we can't set up an account for you." testID="ob-young">
+        Come back when you're 18
+      </Title>
+    );
+  } else if (step === 'welcome') {
+    body = (
+      <Title sub="Every pack shows its odds first. Sell any card back instantly, or ship the ones you keep. This is an unofficial demo on pretend credit.">
+        Your first pack is waiting.
+      </Title>
+    );
+    footer = (
+      <View style={{ gap: 4 }}>
+        <Button
+          label="Let's open it"
+          variant="buy"
+          onPress={() => {
+            setMode('new');
+            goTo('age');
+          }}
+          testID="ob-start"
+        />
+        <Press
+          onPress={() => {
+            setMode('returning');
+            goTo('age');
+          }}
+          testID="ob-have-account"
+          style={{ alignSelf: 'center', padding: 12 }}
+        >
+          <Text style={{ color: colors.label2, fontSize: 15, fontWeight: '500' }}>
+            Already have an account? <Text style={{ color: colors.accentSoft, fontWeight: '600' }}>Log in</Text>
+          </Text>
+        </Press>
+      </View>
+    );
+  } else if (step === 'age') {
+    body = <Title sub="Godpack is for adults. This demo has no real money, but it keeps the same rule.">Are you 18 or older?</Title>;
+    footer = (
+      <View style={{ flexDirection: 'row', gap: 10 }}>
+        <Button
+          label="No"
+          variant="secondary"
+          onPress={() => {
+            warn();
+            setPrefs({ blocked: true });
+          }}
+          testID="ob-age-no"
+          style={{ flex: 1, minHeight: 52, borderRadius: 12 }}
+        />
+        <Button
+          label="Yes, I'm 18+"
+          variant="buy"
+          onPress={() => {
+            setAnswers({ adult: true });
+            react('Great. Now the fun part.');
+            next();
+          }}
+          testID="ob-age-yes"
+          style={{ flex: 2 }}
+        />
+      </View>
+    );
+  } else if (step === 'goals') {
+    body = (
+      <>
+        <Title>What are you here for?</Title>
+        <View style={styles.chips}>
+          {GOALS.map((g, i) => {
+            const on = answers.goals.includes(g.id);
+            return (
+              <Animated.View key={g.id} entering={staggered(i + 1)}>
+                <Press
+                  onPress={() => {
+                    const goals = on ? answers.goals.filter((x) => x !== g.id) : [...answers.goals, g.id];
+                    setAnswers({ goals });
+                    if (!on) react(GOAL_LINE[g.id], g.id === 'battle' ? 'wow' : 'happy');
+                    else react('Changed your mind? No problem.', 'idle');
+                  }}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: on }}
+                  accessibilityLabel={`${g.title}. ${g.sub}`}
+                  testID={`opt-${g.id}`}
+                  style={[styles.bigChip, on && styles.bigChipOn]}
+                >
+                  <Icon name={g.icon} size={17} color={on ? '#0b0a12' : colors.label2} />
+                  <Text style={[styles.bigChipText, on && { color: '#0b0a12' }]}>{g.title}</Text>
+                </Press>
+              </Animated.View>
+            );
+          })}
+        </View>
+        {answers.goals.length ? (
+          <Text style={styles.hint} testID="ob-picked">
+            {answers.goals.length} picked
+          </Text>
+        ) : null}
+      </>
+    );
+    footer = <Button label={answers.goals.length ? 'Continue' : 'Pick at least one'} variant="buy" disabled={!answers.goals.length} onPress={() => next()} testID="ob-continue" />;
+  } else if (step === 'format') {
+    const pick = (f: Format) => {
+      setAnswers({ format: f });
+      react(FORMAT_LINE[f], f === 'graded' ? 'wow' : 'happy');
+      // Long enough to watch the pack turn over to its new design.
+      later(() => next('format'), 900);
+    };
+    const opt = (f: Format, title: string, sub: string, art: ReactNode) => (
+      <Press key={f} onPress={() => pick(f)} accessibilityRole="radio" accessibilityState={{ checked: answers.format === f }} testID={`opt-${f}`} style={[styles.formatCard, answers.format === f && styles.formatOn]}>
+        <View style={{ height: 92, alignItems: 'center', justifyContent: 'center' }}>{art}</View>
+        <Text style={styles.formatTitle}>{title}</Text>
+        <Text style={styles.formatSub}>{sub}</Text>
+      </Press>
+    );
+    body = (
+      <>
+        <Title>Raw cards or graded slabs?</Title>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          {opt('raw', 'Raw cards', 'Packs from $1', <Thumb id="frost-halo" width={60} />)}
+          {opt('graded', 'Graded slabs', 'Packs from $25', <Thumb id="aurora-peaks" graded width={52} />)}
+        </View>
+        <Press onPress={() => pick('both')} testID="opt-both" style={[styles.bigChip, { alignSelf: 'center' }, answers.format === 'both' && styles.bigChipOn]}>
+          <Text style={[styles.bigChipText, answers.format === 'both' && { color: '#0b0a12' }]}>Both, show me everything</Text>
+        </Press>
+      </>
+    );
+  } else if (step === 'spend') {
+    const value = answers.spend ? SPENDS.findIndex((x) => x.id === answers.spend) : null;
+    body = (
+      <>
+        <Title>What feels comfortable per session?</Title>
+        <SpendSlider
+          stops={SPENDS}
+          value={value}
+          onChange={(i) => {
+            setAnswers({ spend: SPENDS[i].id });
+            react(SPENDS[i].line, i === 3 ? 'wow' : 'happy');
+          }}
+        />
+        {answers.spend ? (
+          <Animated.View key={setup.pack.id} entering={fadeIn} style={styles.reco}>
+            <Text style={{ color: colors.muted, fontSize: 13, fontWeight: '500', flex: 1 }}>Your pack</Text>
+            <Text style={{ color: colors.text, fontSize: 15, fontWeight: '700' }} testID="ob-spend-pack">
+              {setup.pack.name} · {money(setup.pack.price, { compact: true })}
+            </Text>
+            <Text style={{ color: colors.accentSoft, fontSize: 13, fontWeight: '500' }}>up to {setup.pack.mult}×</Text>
+          </Animated.View>
+        ) : null}
+      </>
+    );
+    footer = <Button label={answers.spend ? 'Continue' : 'Drag to choose'} variant="buy" disabled={!answers.spend} onPress={() => next()} testID="ob-continue" />;
+  } else if (step === 'experience') {
+    body = (
+      <>
+        <Title>Opened packs before?</Title>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          {EXPERIENCE.map((e, i) => {
+            const on = answers.experience === e.id;
+            return (
+              <Animated.View key={e.id} entering={staggered(i + 1)} style={{ flex: 1 }}>
+                <Press
+                  onPress={() => {
+                    setAnswers({ experience: e.id });
+                    // Applying the recommendation now shows the Safe-mode shield on the pack.
+                    const r = recommend({ ...answers, experience: e.id });
+                    setPrefs({ safe: r.safe, limit: r.limit });
+                    react(e.line, e.id === 'serious' ? 'wow' : 'happy');
+                    later(() => next('experience'), 1100);
+                  }}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: on }}
+                  testID={`opt-${e.id}`}
+                  style={[styles.expCard, on && styles.formatOn]}
+                >
+                  <Text style={[styles.formatTitle, { textAlign: 'center' }]}>{e.label}</Text>
+                </Press>
+              </Animated.View>
+            );
+          })}
+        </View>
+      </>
+    );
+  } else if (step === 'seal') {
+    body = (
+      <>
+        <Title testID="ob-recommended">
+          Your <Text testID="ob-recommended-name">{setup.pack.name}</Text> pack is ready
+        </Title>
+        <View style={styles.group}>
+          <View style={[styles.row, styles.rule]}>
+            <Icon name="shield" size={18} color={prefs.safe ? colors.money : colors.muted} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.rowTitle}>Safe mode</Text>
+              <Text style={styles.rowSub}>Higher floor, same top prizes</Text>
+            </View>
+            <Toggle value={prefs.safe} onChange={(v) => setPrefs({ safe: v })} label="Safe mode" testID="ob-safe" />
+          </View>
+          <View style={styles.row}>
+            <Icon name="clock" size={18} color={prefs.limit != null ? colors.gold : colors.muted} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.rowTitle}>Daily spending reminder</Text>
+              <Text style={styles.rowSub}>{prefs.limit != null ? `A nudge after ${money(prefs.limit, { compact: true })} a day` : 'Off'}</Text>
+            </View>
+            <Toggle value={prefs.limit != null} onChange={(v) => setPrefs({ limit: v ? (SPEND_LIMIT[answers.spend ?? 'mid'] ?? 50) : null })} label="Daily spending reminder" testID="ob-reminder" />
+          </View>
+        </View>
+      </>
+    );
+    footer = (
+      <View style={{ gap: 8 }}>
+        <Button
+          label="Tear it open"
+          variant="buy"
+          onPress={() => {
+            if (!usePrefs.getState().welcome) setPrefs({ welcome: welcomePull() });
+            bump('medium');
+            next();
+          }}
+          testID="ob-continue"
+        />
+        <Text style={[type.small, { textAlign: 'center' }]}>Free, and guaranteed to be a hit or better</Text>
+      </View>
+    );
+  } else if (step === 'email') {
+    const ok = validEmail(email);
+    body = (
+      <>
+        <Title sub="We'll send a 6-digit code to confirm it's you. Demo: the code appears on screen and no email is sent.">What's your email?</Title>
+        <Field
+          big
+          value={email}
+          onChangeText={setEmail}
+          placeholder="you@example.com"
+          autoCapitalize="none"
+          autoComplete="email"
+          autoCorrect={false}
+          keyboardType="email-address"
+          textContentType="emailAddress"
+          returnKeyType="send"
+          onSubmitEditing={sendCode}
+          autoFocus
+          accessibilityLabel="Email address"
+          testID="ob-email"
+        />
+      </>
+    );
+    footer = <Button label={busy ? 'Sending' : 'Send code'} variant="buy" disabled={!ok} loading={busy} onPress={sendCode} testID="ob-send-code" />;
+  } else if (step === 'code') {
+    body = (
+      <>
+        <Title sub={`Sent to ${email.trim().toLowerCase()}.`}>Enter the code</Title>
+        <CodeInput value={entered} onChange={onCode} state={codeState} testID="ob-code" />
+        {codeState === 'error' ? (
+          <Animated.Text entering={fadeIn} style={styles.error} testID="ob-code-error">
+            That code doesn't match. Check the banner up top.
+          </Animated.Text>
+        ) : null}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Press onPress={() => goTo('email')} testID="ob-change-email" style={{ paddingVertical: 8 }}>
+            <Text style={styles.link}>Change email</Text>
+          </Press>
+          <Press
+            onPress={() => {
+              setBanner(false);
+              setCode(newCode());
+              setEntered('');
+              setCodeState('idle');
+              react('New code coming up…', 'idle');
+              later(() => setBanner(true), 700);
+            }}
+            testID="ob-resend"
+            style={{ paddingVertical: 8 }}
+          >
+            <Text style={styles.link}>Send a new code</Text>
+          </Press>
+        </View>
+      </>
+    );
+    footer = <Button label="Verify" variant="buy" disabled={entered.length < CODE_LENGTH || codeState === 'ok'} loading={busy} onPress={() => verify(entered)} testID="ob-verify" />;
+  } else if (step === 'name') {
+    const error = !clean ? null : !validHandle(clean) ? 'Use 3–16 letters, numbers or _' : TAKEN.has(clean) ? 'That name is taken' : null;
+    const signedWith = draft ? { apple: 'Apple', google: 'Google', email: 'email', guest: '' }[draft.provider] : '';
+    const color = draft?.color ?? AVATAR_COLORS[0];
+    body = (
+      <>
+        <Title>Pick your collector name</Title>
+        {signedWith ? (
+          <Text style={styles.hint} testID="ob-signed-with">
+            Signed in with {signedWith}
+            {draft?.demo ? ' (demo, on this device)' : ''}
+            {draft?.email ? ` · ${draft.email}` : ''}
+          </Text>
+        ) : null}
+        <Field big value={handle} onChangeText={(t) => setHandle(t.replace(/\s+/g, '_').toLowerCase())} autoCapitalize="none" autoCorrect={false} maxLength={16} error={error} placeholder="yourname" accessibilityLabel="Collector name" testID="ob-handle" />
+        <View style={{ gap: 10 }}>
+          <Caps>Avatar colour</Caps>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+            {AVATAR_COLORS.map((c) => (
+              <Press
+                key={c}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: c === color }}
+                accessibilityLabel={COLOR_NAMES[c]}
+                onPress={() => {
+                  tap();
+                  if (draft) setPrefs({ draft: { ...draft, color: c } });
+                }}
+                haptic={false}
+                testID={`ob-color-${c.slice(1)}`}
+                scaleTo={0.92}
+                style={[styles.swatch, { backgroundColor: c }, c === color && styles.swatchOn]}
+              >
+                {c === color ? <Icon name="check" size={14} color="#fff" stroke={3} /> : null}
+              </Press>
+            ))}
+          </View>
+        </View>
+      </>
+    );
+    footer = (
+      <Button
+        label="Continue"
+        variant="buy"
+        disabled={!clean || !!error}
+        onPress={() => {
+          if (draft) setPrefs({ draft: { ...draft, handle: clean } });
+          next();
+        }}
+        testID="ob-continue"
+      />
+    );
+  } else if (step === 'notify') {
+    body = <Title sub="Shipping updates, battle results and one daily check-in reminder. You can change this any time.">Never miss a pull</Title>;
+    footer = <Notify onDone={finish} />;
+  }
+
+  const enter = reduced ? fadeIn : dir > 0 ? enterFwd : enterBack;
+  const exit = reduced ? fadeOut : dir > 0 ? exitFwd : exitBack;
+  const g = geometry('welcome', W, H, insets.top);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }} testID="onboarding">
+      <Stage
+        pose={pose}
+        art={setup.pack.art}
+        tint={tint}
+        charms={charms}
+        shield={!!answers.experience && prefs.safe}
+        card={myCard}
+        owner={step === 'name' ? clean : undefined}
+        avatar={step === 'name' ? { handle: clean, color: draft?.color ?? AVATAR_COLORS[0] } : null}
+        hidePack={step === 'tear' || blocked}
+        dormant={dormant}
+      />
+
       {chrome ? (
-        <View style={[styles.top, { paddingTop: insets.top + 6 }]}>
+        <View style={[styles.top, { paddingTop: insets.top + 4 }]}>
           <IconButton name="chevronLeft" label="Back" testID="ob-back" onPress={back} />
           <ProgressBar value={progress} />
           <Text style={styles.count} testID="ob-count">
@@ -215,768 +630,168 @@ export default function Onboarding() {
           </Text>
         </View>
       ) : null}
-      <Animated.View
-        key={blocked ? 'young' : step}
-        entering={
-          !moved.current
-            ? undefined
-            : dir > 0
-              ? SlideInRight.duration(280).easing(Easing.out(Easing.cubic))
-              : SlideInLeft.duration(280).easing(Easing.out(Easing.cubic))
-        }
-        exiting={FadeOut.duration(100)}
-        style={{ flex: 1 }}
-        testID={`ob-step-${blocked ? 'too-young' : step}`}
-      >
-        {body}
-      </Animated.View>
+
+      {step !== 'tear' ? <PipRow top={pipTop} hidden={pipHidden} text={blocked ? 'Sorry — Godpack is only for adults.' : (line ?? says[step])} mood={blocked ? 'think' : mood} hop={hop} /> : null}
+
+      {step !== 'claim' || blocked ? (
+        <KeyboardAvoidingView behavior="padding" style={[StyleSheet.absoluteFill, { top: contentTop }]} pointerEvents="box-none">
+          <Animated.View key={blocked ? 'young' : step} entering={enter} exiting={exit} style={{ flex: 1 }} testID={`ob-step-${blocked ? 'too-young' : step}`}>
+            <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+              {body}
+            </ScrollView>
+            {footer ? <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>{footer}</View> : null}
+          </Animated.View>
+        </KeyboardAvoidingView>
+      ) : (
+        <View style={StyleSheet.absoluteFill} pointerEvents="box-none" testID="ob-step-claim">
+          <AuthSheet
+            title={mode === 'returning' ? 'Log in' : 'Save your pull'}
+            sub={mode === 'returning' ? 'Pick how you signed up.' : 'Create a free account so this card and your setup are kept. No payment needed.'}
+            footnote="By continuing you agree to the demo's terms and privacy notice. Accounts and cards stay on this device."
+            onHeight={setSheetH}
+            testID="ob-sheet"
+          >
+            <AuthButtons
+              allowSkip={mode !== 'returning'}
+              onEmail={() => {
+                setViaEmail(true);
+                goTo('email');
+              }}
+              onIdentity={(id) => {
+                react('Saved. Nice and safe.', 'happy');
+                identified(id);
+              }}
+            />
+          </AuthSheet>
+        </View>
+      )}
+
+      {step === 'code' && banner ? <CodeBanner code={code} onPress={() => onCode(code)} /> : null}
+
+      {step === 'tear' && myCard && welcome ? (
+        <TearOpen
+          pack={setup.pack.art}
+          card={{ id: myCard.id, name: myCard.name, value: welcome.value, tier: welcome.tier }}
+          from={geometry('seal', W, H, insets.top)}
+          onClaim={() => {
+            claimed.current = true;
+          }}
+          onClose={() => {
+            if (claimed.current) {
+              claimed.current = false;
+              next();
+            } else back();
+          }}
+        />
+      ) : null}
+
+      {intro ? <Intro to={{ x: g.cx, y: g.cy - g.h * 0.03, size: g.w * 0.5 }} onReveal={() => setDormant(false)} onDone={() => setIntro(false)} /> : null}
     </View>
   );
 }
 
-// Starts partly filled (people are likelier to finish something already under way).
+function Title({ children, sub, testID }: { children: ReactNode; sub?: string; testID?: string }) {
+  return (
+    <View style={{ gap: 8 }}>
+      <Animated.Text entering={dropIn} style={type.title} accessibilityRole="header" testID={testID}>
+        {children}
+      </Animated.Text>
+      {sub ? (
+        <Animated.Text entering={dropInLate} style={styles.sub}>
+          {sub}
+        </Animated.Text>
+      ) : null}
+    </View>
+  );
+}
+
+// Pip and his speech bubble, riding just under the stage's hero.
+function PipRow({ top, hidden, text, mood, hop }: { top: number; hidden?: boolean; text: string; mood: Mood; hop: number }) {
+  const reduced = useReducedMotion();
+  const y = useSharedValue(top);
+  const o = useSharedValue(hidden ? 0 : 1);
+  useEffect(() => {
+    y.set(reduced ? top : withSpring(top, SETTLE));
+    o.set(withTiming(hidden ? 0 : 1, { duration: DUR.small, easing: EASE_OUT }));
+  }, [top, hidden, reduced, y, o]);
+  const style = useAnimatedStyle(() => ({ position: 'absolute', left: 16, right: 20, top: 0, height: PIP_ROW - 8, opacity: o.get(), transform: [{ translateY: y.get() }] }));
+  return (
+    <Animated.View style={style} pointerEvents="box-none">
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+        <Mascot size={50} mood={mood} hop={hop} look={hop % 2 ? 0.6 : -0.3} />
+        <Bubble text={text} testID="pip-says" />
+      </View>
+    </Animated.View>
+  );
+}
+
+// Starts partly filled (people are likelier to finish something already
+// under way). The fill is absolute and childless, so its width is cheap.
 function ProgressBar({ value }: { value: number }) {
   const w = useSharedValue(0.12);
   useEffect(() => {
-    w.value = withTiming(0.12 + 0.88 * value, { duration: 380, easing: Easing.out(Easing.cubic) });
+    w.set(withSpring(0.12 + 0.88 * value, SETTLE));
   }, [value, w]);
-  const fill = useAnimatedStyle(() => ({ width: `${w.value * 100}%` }));
+  const fill = useAnimatedStyle(() => ({ width: `${w.get() * 100}%` }));
   return (
-    <View
-      style={styles.bar}
-      accessibilityRole="progressbar"
-      accessibilityValue={{ min: 0, max: 100, now: Math.round((0.12 + 0.88 * value) * 100) }}
-    >
+    <View style={styles.bar} accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 100, now: Math.round((0.12 + 0.88 * value) * 100) }}>
       <Animated.View style={[styles.barFill, fill]} />
     </View>
   );
 }
 
-function Frame({
-  title,
-  sub,
-  children,
-  footer,
-  center,
-}: {
-  title: string;
-  sub?: string;
-  children?: ReactNode;
-  footer?: ReactNode;
-  center?: boolean;
-}) {
+// The opening itself: the website's ceremony, flying the pack in from where
+// it sits on stage.
+function TearOpen({ pack, card, from, onClaim, onClose }: { pack: string; card: { id: string; name: string; value: number; tier: string }; from: { x: number; y: number; w: number; h: number }; onClaim: () => void; onClose: () => void }) {
   const insets = useSafeAreaInsets();
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-      <ScrollView
-        contentContainerStyle={[styles.frame, center && { flexGrow: 1, justifyContent: 'center' }]}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-      >
-        <View style={{ gap: 8 }}>
-          <Text style={type.title} accessibilityRole="header">
-            {title}
-          </Text>
-          {sub ? <Text style={styles.sub}>{sub}</Text> : null}
-        </View>
-        {children}
-      </ScrollView>
-      {footer ? <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>{footer}</View> : null}
-    </KeyboardAvoidingView>
-  );
-}
-
-// A grouped list (one panel, hairline rows) of choices.
-function Choices({ children }: { children: ReactNode }) {
-  return <View style={styles.group}>{children}</View>;
-}
-
-function Choice({
-  title,
-  sub,
-  on,
-  onPress,
-  testID,
-  multi,
-  visual,
-  last,
-}: {
-  title: string;
-  sub?: string;
-  on: boolean;
-  onPress: () => void;
-  testID: string;
-  multi?: boolean;
-  visual?: ReactNode;
-  last?: boolean;
-}) {
-  return (
-    <Press
-      testID={testID}
-      onPress={onPress}
-      scaleTo={1}
-      accessibilityRole={multi ? 'checkbox' : 'radio'}
-      accessibilityState={{ checked: on }}
-      accessibilityLabel={sub ? `${title}. ${sub}` : title}
-      style={[styles.choice, !last && styles.choiceRule, on && { backgroundColor: colors.control }]}
-    >
-      {visual}
-      <View style={{ flex: 1, gap: 2 }}>
-        <Text style={styles.choiceTitle}>{title}</Text>
-        {sub ? <Text style={styles.choiceSub}>{sub}</Text> : null}
-      </View>
-      <View style={[multi ? styles.box : styles.radio, on && styles.markOn]}>
-        {on ? <Icon name="check" size={13} color="#fff" stroke={3} /> : null}
-      </View>
-    </Press>
-  );
-}
-
-// Single-choice questions move on by themselves a moment after a tap.
-function useAutoNext(onNext: () => void) {
-  const t = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const latest = useRef(onNext);
-  latest.current = onNext;
-  useEffect(() => () => clearTimeout(t.current), []);
-  return () => {
-    clearTimeout(t.current);
-    t.current = setTimeout(() => latest.current(), 260);
-  };
-}
-
-// ---- 1. Welcome ----
-
-function Floating({
-  art,
-  left,
-  top,
-  width,
-  rot,
-  delay,
-}: {
-  art: string;
-  left: number;
-  top: number;
-  width: number;
-  rot: number;
-  delay: number;
-}) {
-  const v = useSharedValue(0);
-  const reduced = useReducedMotion();
-  useEffect(() => {
-    if (!reduced)
-      v.value = withDelay(
-        delay,
-        withRepeat(withTiming(1, { duration: 2500, easing: Easing.inOut(Easing.sin) }), -1, true),
-      );
-    return () => cancelAnimation(v);
-  }, [v, delay, reduced]);
-  const s = useAnimatedStyle(() => ({
-    transform: [{ translateY: interpolate(v.value, [0, 1], [0, -8]) }, { rotate: `${rot}deg` }],
-  }));
-  return (
-    <Animated.View entering={FadeInDown.delay(delay).duration(500)} style={{ position: 'absolute', left, top }}>
-      <Animated.View style={s}>
-        <PackArt art={art} width={width} large />
-      </Animated.View>
+    <Animated.View entering={fadeIn} exiting={fadeOut} style={[StyleSheet.absoluteFill, { paddingTop: insets.top, paddingBottom: insets.bottom }]} testID="welcome-reveal">
+      <Ceremony
+        pack={Math.max(0, CEREMONY_PACKS.indexOf(pack))}
+        card={card}
+        from={{ x: from.x, y: from.y - insets.top, w: from.w, h: from.h }}
+        actions={[{ label: 'Claim it', primary: true }]}
+        onAction={async () => onClaim()}
+        onClose={async () => onClose()}
+        dom={{ style: { flex: 1, backgroundColor: 'transparent' }, containerStyle: { flex: 1, backgroundColor: 'transparent' }, scrollEnabled: false, bounces: false }}
+      />
     </Animated.View>
   );
 }
 
-function Welcome({ onStart, onReturning }: { onStart: () => void; onReturning: () => void }) {
-  const insets = useSafeAreaInsets();
-  const { width: W, height: H } = useWindowDimensions();
-  // Taller phones also get a strip of real recent pulls under the copy.
-  const showHits = H >= 760;
-  const stage = Math.min(H * (showHits ? 0.33 : 0.38), 320);
-  const pw = Math.min(W * 0.3, stage * 0.5, 150);
-  const hits = useMemo(() => pullsFor(packById('master'), 8, 40), []);
-  return (
-    <View style={{ flex: 1 }}>
-      <View style={{ height: stage + insets.top }}>
-        <Svg width="100%" height="100%" style={StyleSheet.absoluteFill} pointerEvents="none">
-          <Defs>
-            <RadialGradient id="welcomeGlow" cx="50%" cy="58%" rx="62%" ry="58%">
-              <Stop offset="0" stopColor="#d8d3e3" stopOpacity={0.24} />
-              <Stop offset="0.7" stopColor="#d8d3e3" stopOpacity={0} />
-            </RadialGradient>
-          </Defs>
-          <Ellipse cx="50%" cy="58%" rx="62%" ry="58%" fill="url(#welcomeGlow)" />
-        </Svg>
-        <View
-          style={{
-            position: 'absolute',
-            top: insets.top + 14,
-            left: 20,
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 8,
-          }}
-        >
-          <Mark size={26} />
-          <Text style={{ color: colors.text, fontSize: 20, fontWeight: '700', letterSpacing: -0.6 }}>godpack</Text>
-        </View>
-        <Floating
-          art="arena"
-          left={W * 0.5 - pw * 1.3}
-          top={insets.top + stage * 0.3}
-          width={pw * 0.85}
-          rot={-12}
-          delay={120}
-        />
-        <Floating
-          art="trainer"
-          left={W * 0.5 + pw * 0.45}
-          top={insets.top + stage * 0.3}
-          width={pw * 0.85}
-          rot={12}
-          delay={240}
-        />
-        <Floating art="master" left={W * 0.5 - pw / 2} top={insets.top + stage * 0.18} width={pw} rot={0} delay={0} />
-      </View>
-      <View style={{ flex: 1, justifyContent: 'flex-end', paddingBottom: insets.bottom + 16, gap: 18 }}>
-        <Animated.View entering={FadeInDown.delay(180).duration(420)} style={{ gap: 10, paddingHorizontal: 20 }}>
-          <Text style={[type.title, { fontSize: 34, lineHeight: 38 }]} accessibilityRole="header">
-            Open packs.{'\n'}Pull graded cards.
-          </Text>
-          <Text style={styles.sub}>
-            Odds before every pack, instant sell-back, and shipping for the cards you keep. This is an unofficial demo —
-            balances are pretend credit.
-          </Text>
-        </Animated.View>
-        {showHits ? (
-          <Animated.View entering={FadeIn.delay(320).duration(420)}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ gap: 12, paddingHorizontal: 20 }}
-              accessibilityLabel="Recent pulls"
-            >
-              {hits.slice(0, 6).map((h) => (
-                <View key={h.uid} pointerEvents="none">
-                  <HitCard hit={h} />
-                </View>
-              ))}
-            </ScrollView>
-          </Animated.View>
-        ) : null}
-        <Animated.View entering={FadeInDown.delay(420).duration(420)} style={{ gap: 4, paddingHorizontal: 20 }}>
-          <Button label="Get started" variant="buy" onPress={onStart} testID="ob-start" />
-          <Press onPress={onReturning} testID="ob-have-account" style={{ alignSelf: 'center', padding: 12 }}>
-            <Text style={{ color: colors.label2, fontWeight: '500', fontSize: 15 }}>
-              Already have an account? <Text style={{ color: colors.accentSoft, fontWeight: '600' }}>Log in</Text>
-            </Text>
-          </Press>
-        </Animated.View>
-      </View>
-    </View>
-  );
-}
-
-// ---- 2. Age ----
-
-function Age({ onYes, onNo }: { onYes: () => void; onNo: () => void }) {
-  return (
-    <Frame
-      title="Are you 18 or older?"
-      sub="Godpack is for adults. This demo has no real money, but it keeps the same rule."
-      footer={
-        <View style={{ gap: 6 }}>
-          <Button label="Yes, I'm 18 or older" variant="buy" onPress={onYes} testID="ob-age-yes" />
-          <Button label="No, I'm under 18" variant="ghost" onPress={onNo} testID="ob-age-no" />
-        </View>
-      }
-    />
-  );
-}
-
-function TooYoung() {
+// The "email" arriving: a system-style banner that drops from the top edge,
+// frosted like the real thing so the scene shows through. Tapping it fills
+// the code in.
+function CodeBanner({ code, onPress }: { code: string; onPress: () => void }) {
   const insets = useSafeAreaInsets();
   return (
-    <View style={[styles.frame, { flex: 1, justifyContent: 'center', paddingTop: insets.top + 20 }]}>
-      <Text style={type.title} accessibilityRole="header">
-        Godpack is for adults
-      </Text>
-      <Text style={styles.sub}>
-        You need to be 18 or older to use the app, so we can't set up an account for you. Thanks for stopping by.
-      </Text>
-    </View>
-  );
-}
-
-// ---- 3. Goals ----
-
-function Goals({ onNext }: { onNext: () => void }) {
-  const goals = usePrefs((p) => p.answers.goals);
-  const toggle = (g: Goal) => setAnswers({ goals: goals.includes(g) ? goals.filter((x) => x !== g) : [...goals, g] });
-  return (
-    <Frame
-      title="What brings you here?"
-      sub="Pick everything that fits. We'll set things up around it."
-      footer={
-        <Button
-          label={goals.length ? 'Continue' : 'Pick at least one'}
-          variant="buy"
-          disabled={!goals.length}
-          onPress={onNext}
-          testID="ob-continue"
-        />
-      }
-    >
-      <Choices>
-        {GOALS.map((g, i) => (
-          <Choice
-            key={g.id}
-            multi
-            title={g.title}
-            sub={g.sub}
-            on={goals.includes(g.id)}
-            onPress={() => toggle(g.id)}
-            testID={`opt-${g.id}`}
-            last={i === GOALS.length - 1}
-          />
-        ))}
-      </Choices>
-      {goals.length ? (
-        <Text style={styles.hint} testID="ob-picked">
-          {goals.length} picked
-        </Text>
-      ) : null}
-    </Frame>
-  );
-}
-
-// ---- 4. Experience ----
-
-function ExperienceStep({ onNext }: { onNext: () => void }) {
-  const value = usePrefs((p) => p.answers.experience);
-  const auto = useAutoNext(onNext);
-  const pick = (v: Experience) => {
-    setAnswers({ experience: v });
-    auto();
-  };
-  const opts: [Experience, string, string][] = [
-    ['new', "I'm new to this", "We'll explain things as you go"],
-    ['casual', "I've opened a few", 'You know the basics'],
-    ['serious', 'I open packs a lot', 'Skip the hand-holding'],
-  ];
-  return (
-    <Frame
-      title="How much have you opened before?"
-      sub="This changes how much we explain, and whether Safe mode starts on."
-    >
-      <Choices>
-        {opts.map(([id, t, s], i) => (
-          <Choice
-            key={id}
-            title={t}
-            sub={s}
-            on={value === id}
-            onPress={() => pick(id)}
-            testID={`opt-${id}`}
-            last={i === opts.length - 1}
-          />
-        ))}
-      </Choices>
-    </Frame>
-  );
-}
-
-// ---- 5. Format ----
-
-function FormatStep({ onNext }: { onNext: () => void }) {
-  const value = usePrefs((p) => p.answers.format);
-  const auto = useAutoNext(onNext);
-  const pick = (v: Format) => {
-    setAnswers({ format: v });
-    auto();
-  };
-  const visual = (kind: Format) => (
-    <View style={{ width: 48, height: 58, alignItems: 'center', justifyContent: 'center' }}>
-      {kind === 'raw' ? <Thumb id="frost-halo" width={40} glow={false} /> : null}
-      {kind === 'graded' ? <Thumb id="aurora-peaks" graded width={34} glow={false} /> : null}
-      {kind === 'both' ? (
-        <View style={{ width: 48, height: 58 }}>
-          <Thumb id="frost-halo" width={30} glow={false} style={{ position: 'absolute', left: 0, top: 8 }} />
-          <Thumb id="aurora-peaks" graded width={27} glow={false} style={{ position: 'absolute', right: 0, top: 2 }} />
+    <Animated.View entering={bannerIn} exiting={bannerOut} style={[styles.banner, { top: insets.top + 8 }]} testID="ob-code-banner">
+      <Press onPress={onPress} accessibilityLabel={`Your Godpack code is ${code.split('').join(' ')}. Tap to fill it in.`} style={styles.bannerPress} scaleTo={0.98}>
+        <BlurView intensity={45} tint="dark" style={StyleSheet.absoluteFill} />
+        <View style={styles.bannerIcon}>
+          <Mark size={22} />
         </View>
-      ) : null}
-    </View>
-  );
-  return (
-    <Frame
-      title="What do you want to pull?"
-      sub="Raw cards come in cheaper packs. Graded slabs are already graded and sealed."
-    >
-      <Choices>
-        <Choice
-          visual={visual('raw')}
-          title="Raw cards"
-          sub="Packs from $1"
-          on={value === 'raw'}
-          onPress={() => pick('raw')}
-          testID="opt-raw"
-        />
-        <Choice
-          visual={visual('graded')}
-          title="Graded slabs"
-          sub="Packs from $25"
-          on={value === 'graded'}
-          onPress={() => pick('graded')}
-          testID="opt-graded"
-        />
-        <Choice
-          visual={visual('both')}
-          title="Both"
-          sub="Show me everything"
-          on={value === 'both'}
-          onPress={() => pick('both')}
-          testID="opt-both"
-          last
-        />
-      </Choices>
-    </Frame>
-  );
-}
-
-// ---- 6. Comfortable spend ----
-
-function SpendStep({ onNext }: { onNext: () => void }) {
-  const value = usePrefs((p) => p.answers.spend);
-  const auto = useAutoNext(onNext);
-  const pick = (v: Spend) => {
-    setAnswers({ spend: v });
-    auto();
-  };
-  const opts: [Spend, string, string][] = [
-    ['look', 'Just looking', 'Browse and open the free pack'],
-    ['low', 'Under $10', 'Starter packs and small battles'],
-    ['mid', '$10 – $50', 'Trainer and Arena packs'],
-    ['high', '$50 or more', 'Master packs and big battles'],
-  ];
-  return (
-    <Frame
-      title="What feels comfortable per session?"
-      sub="This only tunes your recommendations and a spending reminder. You won't be asked to pay anything."
-    >
-      <Choices>
-        {opts.map(([id, t, s], i) => (
-          <Choice
-            key={id}
-            title={t}
-            sub={s}
-            on={value === id}
-            onPress={() => pick(id)}
-            testID={`opt-${id}`}
-            last={i === opts.length - 1}
-          />
-        ))}
-      </Choices>
-      <Text style={styles.hint}>Demo credit only. Nothing in this app costs real money.</Text>
-    </Frame>
-  );
-}
-
-// ---- 7. Building your setup ----
-
-function Building({ onDone }: { onDone: () => void }) {
-  const answers = usePrefs((p) => p.answers);
-  const setup = useMemo(() => recommend(answers), [answers]);
-  const items = [
-    `Matching packs to your goals`,
-    setup.safe ? 'Turning on Safe mode' : 'Setting up full odds',
-    'Adding your free welcome pack',
-  ];
-  const [pct, setPct] = useState(0);
-  const reduced = useReducedMotion();
-  const done = useRef(onDone);
-  done.current = onDone;
-  useEffect(() => {
-    const total = reduced ? 300 : 2100;
-    const t0 = Date.now();
-    let finish: ReturnType<typeof setTimeout> | undefined;
-    const id = setInterval(() => {
-      const p = Math.min(1, (Date.now() - t0) / total);
-      setPct(p);
-      if (p >= 1) {
-        clearInterval(id);
-        bump('light');
-        // Start the setup screen from the recommendation; it can be changed there.
-        setPrefs({ safe: setup.safe, limit: setup.limit });
-        finish = setTimeout(() => done.current(), 350);
-      }
-    }, 40);
-    return () => {
-      clearInterval(id);
-      clearTimeout(finish);
-    };
-  }, [reduced, setup.safe, setup.limit]);
-  return (
-    <Frame title="Building your setup…" sub="Using what you told us." center>
-      <View style={{ alignItems: 'center', marginVertical: 8 }}>
-        <PackArt art={setup.pack.art} width={110} large />
-      </View>
-      <View style={styles.track}>
-        <View style={[styles.barFill, { width: `${pct * 100}%` }]} />
-      </View>
-      <View style={{ gap: 14 }}>
-        {items.map((t, i) => {
-          const on = pct >= (i + 1) / items.length - 0.02;
-          return (
-            <View key={t} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <View style={[styles.radio, on && styles.markOn]}>
-                {on ? <Icon name="check" size={13} color="#fff" stroke={3} /> : null}
-              </View>
-              <Text style={{ color: on ? colors.text : colors.muted, fontSize: 16, fontWeight: '500' }}>{t}</Text>
-            </View>
-          );
-        })}
-      </View>
-    </Frame>
-  );
-}
-
-// ---- 8. Your setup is ready ----
-
-function Ready({ onNext }: { onNext: () => void }) {
-  const answers = usePrefs((p) => p.answers);
-  const setup = useMemo(() => recommend(answers), [answers]);
-  const safe = usePrefs((p) => p.safe);
-  const limit = usePrefs((p) => p.limit);
-  const p = setup.pack;
-  const range = safe ? p.safeRange : p.range;
-  return (
-    <Frame
-      title="Your setup is ready"
-      sub="Here's where we'd start. You can change any of it later."
-      footer={
-        <View style={{ gap: 8 }}>
-          <Button label="Open your free welcome pack" variant="buy" onPress={onNext} testID="ob-continue" />
-          <Text style={[type.small, { textAlign: 'center' }]}>Free, and guaranteed to be a hit or better</Text>
-        </View>
-      }
-    >
-      <View style={styles.panel} testID="ob-recommended">
-        <View style={{ flexDirection: 'row', gap: 16, alignItems: 'center' }}>
-          <PackArt art={p.art} width={70} />
-          <View style={{ flex: 1, gap: 4 }}>
-            <Text style={type.h2} testID="ob-recommended-name">
-              {p.name}
-            </Text>
-            <Text style={{ color: colors.label2, fontWeight: '500', fontSize: 14 }}>
-              {p.slabs ? 'Graded slabs' : 'Raw cards'}
-            </Text>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <Text style={{ color: colors.text, fontWeight: '700', fontSize: 14 }}>Godpack</Text>
+            <Text style={{ color: colors.faint, fontSize: 12 }}>now</Text>
           </View>
-          <View style={{ alignItems: 'flex-end', gap: 3 }}>
-            <Text style={{ color: colors.text, fontSize: 16, fontWeight: '600' }}>
-              {money(p.price, { compact: true })}
-            </Text>
-            <Text style={{ color: colors.accentSoft, fontSize: 13, fontWeight: '500' }}>up to {p.mult}×</Text>
-          </View>
-        </View>
-        <View style={styles.range}>
-          <Text style={{ color: colors.muted, fontSize: 13, fontWeight: '500' }}>Value range per pack</Text>
-          <Text style={{ color: colors.text, fontSize: 16, fontWeight: '700', fontVariant: ['tabular-nums'] }}>
-            {money(range[0])} – {money(range[1])}
+          <Text style={{ color: colors.label2, fontSize: 14 }} numberOfLines={1}>
+            Your code is{' '}
+            <Text style={{ color: colors.text, fontWeight: '700', fontVariant: ['tabular-nums'] }} testID="ob-code-value">
+              {code.slice(0, 3)} {code.slice(3)}
+            </Text>{' '}
+            · Tap to fill
           </Text>
         </View>
-      </View>
-      <View style={styles.group}>
-        <View style={[styles.choice, styles.choiceRule]}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.choiceTitle}>Safe mode</Text>
-            <Text style={styles.choiceSub}>Raises the floor, same top prizes</Text>
-          </View>
-          <Toggle value={safe} onChange={(v) => setPrefs({ safe: v })} label="Safe mode" testID="ob-safe" />
-        </View>
-        <View style={styles.choice}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.choiceTitle}>Daily spending reminder</Text>
-            <Text style={styles.choiceSub}>
-              {limit != null ? `A nudge after ${money(limit, { compact: true })} in a day` : 'Off'}
-            </Text>
-          </View>
-          <Toggle
-            value={limit != null}
-            onChange={(v) => setPrefs({ limit: v ? (setup.limit ?? 50) : null })}
-            label="Daily spending reminder"
-            testID="ob-reminder"
-          />
-        </View>
-      </View>
-      <View style={{ gap: 10 }}>
-        {setup.reasons.slice(0, 3).map((r) => (
-          <View key={r} style={{ flexDirection: 'row', gap: 10 }}>
-            <Icon name="check" size={16} color={colors.money} stroke={2.4} />
-            <Text style={{ color: colors.label2, fontSize: 14, lineHeight: 20, flex: 1 }}>{r}</Text>
-          </View>
-        ))}
-      </View>
-    </Frame>
+      </Press>
+    </Animated.View>
   );
 }
 
-// ---- 9. Free welcome pack — the website's ceremony ----
-
-function WelcomePack({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
-  const stored = usePrefs((p) => p.welcome);
-  const [pull] = useState(() => stored ?? welcomePull());
-  const insets = useSafeAreaInsets();
-  const kept = useRef(false);
-  useEffect(() => {
-    if (!stored) setPrefs({ welcome: pull });
-  }, [stored, pull]);
-  const card = cardById(pull.id);
-  const pack = packById(pull.pack);
-  return (
-    <View
-      style={{ flex: 1, backgroundColor: '#000', paddingTop: insets.top, paddingBottom: insets.bottom }}
-      testID="welcome-reveal"
-    >
-      <Ceremony
-        pack={Math.max(0, CEREMONY_PACKS.indexOf(pack.art))}
-        card={{ id: card.id, name: card.name, value: pull.value, tier: pull.tier }}
-        actions={[{ label: 'Save it to my Vault', primary: true }]}
-        onAction={async () => {
-          kept.current = true;
-        }}
-        onClose={async () => (kept.current ? onNext() : onBack())}
-        dom={{
-          style: { flex: 1, backgroundColor: '#000' },
-          containerStyle: { flex: 1 },
-          scrollEnabled: false,
-          bounces: false,
-        }}
-      />
-    </View>
-  );
-}
-
-// ---- 10. Account ----
-
-function Account({ returning, onIdentity }: { returning: boolean; onIdentity: (id: Identity) => void }) {
-  const welcome = usePrefs((p) => p.welcome);
-  const card = welcome ? cardById(welcome.id) : null;
-  return (
-    <Frame
-      title={returning ? 'Welcome back' : 'Save your pull'}
-      sub={
-        returning
-          ? 'Log in to pick up where you left off.'
-          : 'Create a free account so your card and your setup are kept. No payment needed.'
-      }
-    >
-      {card && welcome && !returning ? (
-        <View style={styles.saved}>
-          <Thumb id={card.id} tier={welcome.tier} width={42} />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.choiceTitle}>{card.name}</Text>
-            <Text style={{ color: colors.money, fontWeight: '700', fontVariant: ['tabular-nums'] }}>
-              {money(welcome.value)}
-            </Text>
-          </View>
-          <Text style={{ color: colors.gold, fontWeight: '600', fontSize: 12 }}>Not saved yet</Text>
-        </View>
-      ) : null}
-      <AuthButtons onIdentity={onIdentity} allowSkip={!returning} />
-      <Text style={[type.small, { textAlign: 'center' }]}>
-        By continuing you agree to the demo's terms and privacy notice. Accounts and cards stay on this device.
-      </Text>
-    </Frame>
-  );
-}
-
-// ---- 11. Collector name ----
-
-function ProfileStep({ onNext }: { onNext: () => void }) {
-  const draft = usePrefs((p) => p.draft);
-  const [handle, setHandle] = useState(draft?.handle ?? '');
-  const color = draft?.color ?? AVATAR_COLORS[0];
-  const clean = handle.toLowerCase();
-  const error = !clean
-    ? null
-    : !validHandle(clean)
-      ? 'Use 3–16 letters, numbers or _'
-      : TAKEN.has(clean)
-        ? 'That name is taken'
-        : null;
-  const ok = !!clean && !error;
-  const signedWith = draft ? { apple: 'Apple', google: 'Google', email: 'email', guest: '' }[draft.provider] : '';
-  const save = (patch: Partial<NonNullable<typeof draft>>) => draft && setPrefs({ draft: { ...draft, ...patch } });
-  return (
-    <Frame
-      title="Pick your collector name"
-      sub="It's how other collectors see you in the feed, battles and chat."
-      footer={
-        <Button
-          label="Continue"
-          variant="buy"
-          disabled={!ok}
-          onPress={() => {
-            save({ handle: clean });
-            onNext();
-          }}
-          testID="ob-continue"
-        />
-      }
-    >
-      {signedWith ? (
-        <Text style={styles.hint} testID="ob-signed-with">
-          Signed in with {signedWith}
-          {draft?.demo ? ' (demo, on this device)' : ''}
-          {draft?.email ? ` · ${draft.email}` : ''}
-        </Text>
-      ) : null}
-      <View style={{ alignItems: 'center', gap: 8, marginVertical: 4 }}>
-        <Avatar handle={clean || '?'} color={color} size={76} />
-        <Text style={{ color: colors.label2, fontSize: 16, fontWeight: '600' }}>@{clean || 'yourname'}</Text>
-      </View>
-      <Field
-        label="Collector name"
-        value={handle}
-        onChangeText={(t) => setHandle(t.replace(/\s+/g, '_').toLowerCase())}
-        autoCapitalize="none"
-        autoCorrect={false}
-        maxLength={16}
-        error={error}
-        placeholder="yourname"
-        testID="ob-handle"
-      />
-      <View style={{ gap: 10 }}>
-        <Caps>Avatar colour</Caps>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
-          {AVATAR_COLORS.map((c) => (
-            <Press
-              key={c}
-              accessibilityRole="radio"
-              accessibilityState={{ checked: c === color }}
-              accessibilityLabel={COLOR_NAMES[c]}
-              onPress={() => {
-                tap();
-                save({ color: c });
-              }}
-              testID={`ob-color-${c.slice(1)}`}
-              scaleTo={0.92}
-              style={[styles.swatch, { backgroundColor: c }, c === color && styles.swatchOn]}
-            >
-              {c === color ? <Icon name="check" size={15} color="#fff" stroke={3} /> : null}
-            </Press>
-          ))}
-        </View>
-      </View>
-    </Frame>
-  );
-}
-
-// ---- 12. Notifications ----
-
+// The notification primer's buttons.
 function Notify({ onDone }: { onDone: (n: 'on' | 'off') => void }) {
   const [busy, setBusy] = useState(false);
-  const samples: [string, string, string][] = [
-    ['Frost Halo shipped', 'Tracking DEMO482193774', 'now'],
-    ['@emberkid joined your battle', 'Tap to watch the replay', '2m ago'],
-    ['Your daily check-in is ready', 'Day 4 of 7 — keep the streak going', '7:00 PM'],
-  ];
   const turnOn = async () => {
     setBusy(true);
     const granted = await requestNotifications();
@@ -986,122 +801,44 @@ function Notify({ onDone }: { onDone: (n: 'on' | 'off') => void }) {
     onDone(granted ? 'on' : 'off');
   };
   return (
-    <Frame
-      title="Never miss a pull"
-      sub="Shipping updates, battle results and one daily check-in reminder. You can change this any time."
-      footer={
-        <View style={{ gap: 6 }}>
-          <Button label="Turn on notifications" variant="buy" onPress={turnOn} loading={busy} testID="ob-notify-on" />
-          <Button label="Not now" variant="ghost" onPress={() => onDone('off')} testID="ob-notify-later" />
-        </View>
-      }
-    >
-      <View style={{ gap: 8, marginTop: 4 }}>
-        {samples.map(([t, b, when], i) => (
-          <Animated.View key={t} entering={FadeInDown.delay(100 + i * 120).duration(320)} style={styles.notif}>
-            <Mark size={30} />
-            <View style={{ flex: 1 }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
-                <Text style={{ color: colors.text, fontWeight: '600', fontSize: 14, flex: 1 }} numberOfLines={1}>
-                  {t}
-                </Text>
-                <Text style={{ color: colors.faint, fontSize: 12 }}>{when}</Text>
-              </View>
-              <Text style={{ color: colors.label2, fontSize: 13 }} numberOfLines={1}>
-                {b}
-              </Text>
-            </View>
-          </Animated.View>
-        ))}
-      </View>
-    </Frame>
+    <View style={{ gap: 6 }}>
+      <Button label="Turn on notifications" variant="buy" icon="bell" onPress={turnOn} loading={busy} testID="ob-notify-on" />
+      <Button label="Not now" variant="ghost" onPress={() => onDone('off')} testID="ob-notify-later" />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  top: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 8, paddingBottom: 4 },
-  bar: { flex: 1, height: 4, borderRadius: 2, backgroundColor: colors.line, overflow: 'hidden' },
-  barFill: { height: '100%', borderRadius: 2, backgroundColor: colors.primary },
-  track: { height: 4, alignSelf: 'stretch', borderRadius: 2, backgroundColor: colors.line, overflow: 'hidden' },
-  count: {
-    color: colors.faint,
-    fontSize: 13,
-    fontWeight: '600',
-    fontVariant: ['tabular-nums'],
-    minWidth: 40,
-    textAlign: 'right',
-    paddingRight: 8,
-  },
-  frame: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 24, gap: 20 },
+  top: { position: 'absolute', left: 0, right: 0, top: 0, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 8, zIndex: 2 },
+  bar: { flex: 1, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.08)', overflow: 'hidden' },
+  barFill: { position: 'absolute', left: 0, top: 0, bottom: 0, borderRadius: 2, backgroundColor: colors.primary },
+  count: { color: colors.faint, fontSize: 13, fontWeight: '600', fontVariant: ['tabular-nums'], minWidth: 40, textAlign: 'right', paddingRight: 8 },
+  body: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 20, gap: 18 },
+  footer: { paddingHorizontal: 20, paddingTop: 8 },
   sub: { color: colors.muted, fontSize: 16, lineHeight: 23, fontWeight: '500' },
   hint: { color: colors.muted, fontSize: 13, fontWeight: '500' },
-  footer: { paddingHorizontal: 20, paddingTop: 10 },
-  group: {
-    borderRadius: radius.lg,
-    backgroundColor: colors.panel,
-    borderWidth: 1,
-    borderColor: colors.panelLine,
-    overflow: 'hidden',
-  },
-  choice: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    minHeight: 64,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  choiceRule: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.panelLine },
-  choiceTitle: { color: colors.text, fontSize: 16, fontWeight: '600' },
-  choiceSub: { color: colors.muted, fontSize: 13.5, fontWeight: '500' },
-  box: {
-    width: 22,
-    height: 22,
-    borderRadius: 6,
-    borderWidth: 1.5,
-    borderColor: colors.fieldLine,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  radio: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 1.5,
-    borderColor: colors.fieldLine,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  markOn: { backgroundColor: colors.primary, borderColor: colors.primary },
-  panel: {
-    gap: 14,
-    padding: 16,
-    borderRadius: radius.lg,
-    backgroundColor: colors.panel,
-    borderWidth: 1,
-    borderColor: colors.panelLine,
-  },
-  range: { gap: 2, padding: 12, borderRadius: 12, backgroundColor: colors.surface2 },
-  saved: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 12,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.line,
-  },
-  swatch: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  error: { color: colors.danger, fontSize: 14, fontWeight: '500', marginTop: -6 },
+  link: { color: colors.accentSoft, fontSize: 15, fontWeight: '600' },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  bigChip: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44, paddingHorizontal: 16, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.lineStrong, backgroundColor: 'rgba(24,22,30,0.85)' },
+  bigChipOn: { backgroundColor: colors.label, borderColor: colors.label },
+  bigChipText: { color: colors.label, fontSize: 15, fontWeight: '600' },
+  formatCard: { flex: 1, alignItems: 'center', gap: 4, paddingVertical: 14, paddingHorizontal: 10, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.panelLine, backgroundColor: 'rgba(24,22,30,0.85)' },
+  formatOn: { borderColor: colors.label, backgroundColor: colors.control },
+  formatTitle: { color: colors.text, fontSize: 15, fontWeight: '700' },
+  formatSub: { color: colors.muted, fontSize: 13, fontWeight: '500' },
+  expCard: { minHeight: 64, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.panelLine, backgroundColor: 'rgba(24,22,30,0.85)' },
+  reco: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: 12, backgroundColor: colors.surface2 },
+  group: { borderRadius: radius.lg, backgroundColor: 'rgba(24,22,30,0.9)', borderWidth: 1, borderColor: colors.panelLine, overflow: 'hidden' },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 60, paddingHorizontal: 16, paddingVertical: 10 },
+  rule: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.panelLine },
+  rowTitle: { color: colors.text, fontSize: 15, fontWeight: '600' },
+  rowSub: { color: colors.muted, fontSize: 13 },
+  swatch: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   swatchOn: { borderWidth: 3, borderColor: '#fff' },
-  notif: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 12,
-    borderRadius: 18,
-    backgroundColor: colors.surface2,
-    borderWidth: 1,
-    borderColor: colors.line,
-  },
+  // The shadow sits outside the clipped, frosted layer so it isn't cut off.
+  banner: { position: 'absolute', left: 12, right: 12, zIndex: 3, borderRadius: 20, boxShadow: '0 12px 30px rgba(0,0,0,0.45)' },
+  // Heavier tint than iOS's own banner: it has to stay legible over a glowing scene.
+  bannerPress: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 20, overflow: 'hidden', backgroundColor: 'rgba(40,36,52,0.72)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' },
+  bannerIcon: { width: 38, height: 38, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.panel },
 });

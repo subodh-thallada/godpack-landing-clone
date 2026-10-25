@@ -3,7 +3,8 @@
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
+import { fadeIn, reflow } from '../../src/lib/motion';
 import { Icon } from '../../src/components/Icon';
 import { PackStore } from '../../src/components/PackStore';
 import { PackArt } from '../../src/components/Thumb';
@@ -68,7 +69,7 @@ export default function Battles() {
             const pack = packById(b.pack);
             const host = b.mine ? { handle: s?.handle ?? 'you', color: s?.color ?? colors.primary } : user(b.host);
             return (
-              <Animated.View key={b.id} entering={FadeIn.duration(200)} layout={LinearTransition} style={[styles.ob, b.mine && { borderColor: colors.accentSoft }]} testID={b.mine ? 'my-battle' : 'lobby-battle'}>
+              <Animated.View key={b.id} entering={fadeIn} layout={reflow} style={[styles.ob, b.mine && { borderColor: colors.accentSoft }]} testID={b.mine ? 'my-battle' : 'lobby-battle'}>
                 <View style={styles.obTop}>
                   <Press onPress={() => !b.mine && go(`/profile/${b.host}`)} disabled={b.mine} accessibilityLabel={b.mine ? 'You' : `@${b.host}`} style={styles.host}>
                     <Avatar handle={host.handle} color={host.color} size={36} />

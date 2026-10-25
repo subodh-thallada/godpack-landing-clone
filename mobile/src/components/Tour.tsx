@@ -5,9 +5,6 @@ import { type ReactNode, useCallback, useEffect, useRef } from 'react';
 import { type HostInstance, Platform, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Animated, {
   cancelAnimation,
-  Easing,
-  FadeIn,
-  FadeInDown,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
@@ -17,6 +14,7 @@ import Animated, {
 import Svg, { Path } from 'react-native-svg';
 import { create } from 'zustand';
 import { bump } from '../lib/haptics';
+import { EASE_OUT, fadeIn, scaleIn } from '../lib/motion';
 import { colors, radius, type } from '../theme';
 import type { IconName } from './Icon';
 import { Button, Press } from './ui';
@@ -101,14 +99,14 @@ export function TourOverlay() {
   useEffect(() => {
     if (!active) {
       cancelAnimation(pulse);
-      pulse.value = 0;
+      pulse.set(0);
       return;
     }
-    pulse.value = withRepeat(withSequence(withTiming(1, { duration: 1100, easing: Easing.out(Easing.quad) }), withTiming(0, { duration: 0 })), -1);
+    pulse.set(withRepeat(withSequence(withTiming(1, { duration: 1100, easing: EASE_OUT }), withTiming(0, { duration: 0 })), -1));
     return () => cancelAnimation(pulse);
   }, [active, pulse]);
 
-  const ring = useAnimatedStyle(() => ({ opacity: 1 - pulse.value * 0.8, transform: [{ scale: 1 + pulse.value * 0.06 }] }));
+  const ring = useAnimatedStyle(() => ({ opacity: 1 - pulse.get() * 0.8, transform: [{ scale: 1 + pulse.get() * 0.06 }] }));
 
   if (!active) return null;
   const step = steps[index];
@@ -133,7 +131,7 @@ export function TourOverlay() {
 
   return (
     <View style={[StyleSheet.absoluteFill, { zIndex: 50 }]} testID="tour" accessibilityViewIsModal>
-      <Animated.View entering={FadeIn.duration(220)} style={StyleSheet.absoluteFill}>
+      <Animated.View entering={fadeIn} style={StyleSheet.absoluteFill}>
         <Svg width={W} height={H} style={StyleSheet.absoluteFill} pointerEvents="none">
           {hole ? <Path d={hole.d} fill="rgba(6,5,10,0.78)" fillRule="evenodd" /> : <Path d={`M0 0H${W}V${H}H0Z`} fill="rgba(6,5,10,0.78)" />}
         </Svg>
@@ -149,9 +147,11 @@ export function TourOverlay() {
       ) : null}
       <Animated.View
         key={`tip-${index}`}
-        entering={FadeInDown.duration(240)}
+        // The tip grows out of its arrow, so it reads as pointing at the target.
+        entering={scaleIn}
         style={[
           styles.tip,
+          { transformOrigin: hole ? `${arrowLeft + 9}px ${below ? 'top' : 'bottom'}` : 'center' },
           { width: tipWidth, left: tipLeft },
           hole ? (below ? { top: hole.y + hole.h + 14 } : { bottom: H - hole.y + 14 }) : { top: H / 2 - 100 },
         ]}

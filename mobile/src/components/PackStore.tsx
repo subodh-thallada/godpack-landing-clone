@@ -3,28 +3,25 @@
 // switch, then the order panel — quantity, pack tier, value range with odds,
 // and the buy button. Battle mode adds seats, opponent and Lowest wins.
 import { router, useIsFocused } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   Easing,
-  FadeIn,
-  FadeInDown,
-  FadeInLeft,
-  FadeInRight,
   cancelAnimation,
   interpolate,
-  runOnJS,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 import Svg, { Defs, Ellipse, RadialGradient, Stop } from 'react-native-svg';
 import { PACKS } from '../data';
 import { money, round2 } from '../lib/format';
 import { bump } from '../lib/haptics';
+import { T_SETTLE, enterBack, enterFwd, fadeIn, project, scaleIn } from '../lib/motion';
 import { toast } from '../lib/toast';
 import { recordSpend, setPrefs, usePrefs } from '../store/prefs';
 import { openPacks, postBattle, useSession } from '../store/session';
@@ -61,10 +58,10 @@ export function PackStore({ battle = false }: { battle?: boolean }) {
       cancelAnimation(float);
       return;
     }
-    float.value = withRepeat(withTiming(1, { duration: 2500, easing: Easing.inOut(Easing.sin) }), -1, true);
+    float.set(withRepeat(withTiming(1, { duration: 2500, easing: Easing.inOut(Easing.sin) }), -1, true));
     return () => cancelAnimation(float);
   }, [float, reduced, focused]);
-  const floatStyle = useAnimatedStyle(() => ({ transform: [{ translateY: interpolate(float.value, [0, 1], [0, -8]) }] }));
+  const floatStyle = useAnimatedStyle(() => ({ transform: [{ translateY: interpolate(float.get(), [0, 1], [0, -8]) }] }));
 
   const select = (i: number) => {
     const to = Math.max(0, Math.min(PACKS.length - 1, i));
@@ -75,13 +72,20 @@ export function PackStore({ battle = false }: { battle?: boolean }) {
     setIndex(to);
     setPrefs(battle ? { battlePack: to } : { pack: to });
   };
-  const swipe = Gesture.Pan()
-    .activeOffsetX([-18, 18])
-    .failOffsetY([-14, 14])
-    .onEnd((e) => {
-      if (e.translationX < -40) runOnJS(select)(index + 1);
-      else if (e.translationX > 40) runOnJS(select)(index - 1);
-    });
+  // Swiping the stage changes pack. Where the swipe was heading counts, not
+  // just how far it got, so a quick flick is enough.
+  const swipe = useMemo(
+    () =>
+      Gesture.Pan()
+        .activeOffsetX([-18, 18])
+        .failOffsetY([-14, 14])
+        .onEnd((e) => {
+          const heading = e.translationX + project(e.velocityX) * 0.25;
+          if (heading < -60) scheduleOnRN(select, index + 1);
+          else if (heading > 60) scheduleOnRN(select, index - 1);
+        }),
+    [index, battle], // select closes over these
+  );
 
   const go = () => {
     if (balance < cost) {
@@ -132,7 +136,7 @@ export function PackStore({ battle = false }: { battle?: boolean }) {
               </View>
             </View>
             <Animated.View style={floatStyle}>
-              <Animated.View key={pack.id} entering={reduced ? FadeIn : dir > 0 ? FadeInRight.duration(280) : FadeInLeft.duration(280)}>
+              <Animated.View key={pack.id} entering={reduced ? fadeIn : dir > 0 ? enterFwd : enterBack}>
                 <Press onPress={go} haptic={false} accessibilityLabel={`${pack.name} pack. ${label}`} testID="pack-art" scaleTo={0.97}>
                   <PackArt art={pack.art} width={packW} large />
                 </Press>
@@ -208,12 +212,13 @@ export function PackStore({ battle = false }: { battle?: boolean }) {
               <Text style={styles.tierPrice}>{priceLabel(pack.price)}</Text>
               <Text style={styles.mult}>up to {pack.mult}×</Text>
             </View>
-            <View style={{ transform: [{ rotate: menu ? '180deg' : '0deg' }] }}>
+            <Animated.View style={[T_SETTLE, { transform: [{ rotate: menu ? '180deg' : '0deg' }] }]}>
               <Icon name="chevronDown" size={16} color={colors.muted} />
-            </View>
+            </Animated.View>
           </Press>
           {menu ? (
-            <Animated.View entering={FadeInDown.duration(180)} style={styles.menu} accessibilityRole="menu">
+            // Grows out of the tier button above it.
+            <Animated.View entering={scaleIn} style={[styles.menu, { transformOrigin: 'top' }]} accessibilityRole="menu">
               {PACKS.map((t, i) => (
                 <Press key={t.id} onPress={() => select(i)} accessibilityRole="menuitem" accessibilityState={{ selected: i === index }} testID={`tier-${t.id}`} style={[styles.menuRow, i === index && { backgroundColor: colors.control }]}>
                   <View style={styles.menuLine}>

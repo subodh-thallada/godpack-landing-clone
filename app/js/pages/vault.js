@@ -122,7 +122,7 @@ export function mount(view, { scope, openAuth, toast, navigate, params = {} }) {
 
   function paint() {
     const s = session.state;
-    $('[data-stat="count"]', view).textContent = s ? s.vault.length : '—';
+    $('[data-stat="count"]', view).textContent = s ? s.vault.length.toLocaleString('en-US') : '—';
     $('[data-stat="value"]', view).textContent = s ? money(vaultValue()) : '—';
     if (!s) {
       body.innerHTML = html`<div class="empty surface">
@@ -244,7 +244,7 @@ export function mount(view, { scope, openAuth, toast, navigate, params = {} }) {
     const total = vaultValue();
     const node = el(
       html`<div class="confirm">
-        <h2>Sell all ${s.vault.length} cards?</h2>
+        <h2>Sell all ${s.vault.length.toLocaleString('en-US')} ${s.vault.length === 1 ? 'card' : 'cards'}?</h2>
         <p>
           You'll receive <strong class="num">${money(total * (1 - FEE))}</strong> after the 5% selling fee. Demo credit
           only.

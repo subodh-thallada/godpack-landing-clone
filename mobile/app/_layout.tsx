@@ -5,7 +5,11 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { Platform, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
+import { useReducedMotion } from 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { Curtain } from '../src/components/Curtain';
+import { DataToggle } from '../src/dev/fixtures';
 import { Toaster } from '../src/components/Toaster';
 import { TourOverlay } from '../src/components/Tour';
 import { useWorld } from '../src/lib/world';
@@ -36,6 +40,8 @@ export default function RootLayout() {
   const ready = useHydrated();
   const signedIn = useSession((x) => !!x.s);
   const onboarded = usePrefs((p) => p.onboarded);
+  // Pushes use the platform's own transition; reduced motion makes them fades.
+  const reduced = useReducedMotion();
   useWorld(ready && signedIn);
 
   useEffect(() => {
@@ -46,11 +52,12 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.bg }}>
+      <KeyboardProvider>
       <SafeAreaProvider>
         <StatusBar style="light" />
         {ready ? (
           <View style={{ flex: 1, ...(Platform.OS === 'web' ? { maxWidth: 520, width: '100%', alignSelf: 'center' } : null) }}>
-            <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg }, animation: 'slide_from_right' }}>
+            <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg }, animation: reduced ? 'fade' : 'default' }}>
               <Stack.Screen name="index" options={{ animation: 'none' }} />
               {/* Each part of the app is only reachable in the right state, so a
                   deep link can't skip onboarding or sign-in, or reset an account. */}
@@ -79,13 +86,16 @@ export default function RootLayout() {
                 <Stack.Screen name="settings" />
               </Stack.Protected>
             </Stack>
+            <Curtain />
             <TourOverlay />
             <Toaster />
+            {__DEV__ ? <DataToggle /> : null}
           </View>
         ) : (
           <View style={{ flex: 1, backgroundColor: colors.bg }} />
         )}
       </SafeAreaProvider>
+      </KeyboardProvider>
     </GestureHandlerRootView>
   );
 }

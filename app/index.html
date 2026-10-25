@@ -2,8 +2,11 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#101014" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
+    <!-- Dark-only app: the browser chrome matches it in either OS scheme. -->
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#101014" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#101014" />
+    <meta name="color-scheme" content="dark" />
     <meta name="robots" content="noindex, nofollow" />
     <title>Godpack app — unofficial recreation</title>
     <meta

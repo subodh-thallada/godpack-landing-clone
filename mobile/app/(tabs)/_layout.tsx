@@ -4,6 +4,7 @@ import { Redirect } from 'expo-router';
 import { Tabs } from 'expo-router/js-tabs';
 import { useEffect } from 'react';
 import { AppHeader } from '../../src/components/AppHeader';
+import { useCurtain } from '../../src/components/Curtain';
 import { FocusGate } from '../../src/components/FocusGate';
 import { TabBar } from '../../src/components/TabBar';
 import { startTour, useTour } from '../../src/components/Tour';
@@ -16,9 +17,11 @@ export default function TabsLayout() {
   const onboarded = usePrefs((p) => p.onboarded);
   const tourRequested = usePrefs((p) => p.tourRequested);
   const signedIn = useSession((x) => !!x.s);
+  // After onboarding, the tour waits for the curtain to open into the app.
+  const curtain = useCurtain((c) => c.active);
 
   useEffect(() => {
-    if (!onboarded || !signedIn || !tourRequested || useTour.getState().active) return;
+    if (!onboarded || !signedIn || !tourRequested || curtain || useTour.getState().active) return;
     // Let the first screen lay out so every target has a position.
     const t = setTimeout(() => {
       const s = getS();
@@ -26,7 +29,7 @@ export default function TabsLayout() {
       startTour(tourSteps(p.answers, s?.balance ?? 0, s?.freePacks ?? 0), () => setPrefs({ tourDone: true, tourRequested: false }));
     }, 900);
     return () => clearTimeout(t);
-  }, [onboarded, signedIn, tourRequested]);
+  }, [onboarded, signedIn, tourRequested, curtain]);
 
   if (!onboarded) return <Redirect href="/onboarding" />;
   if (!signedIn) return <Redirect href="/signin" />;

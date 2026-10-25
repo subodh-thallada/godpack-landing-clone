@@ -5,6 +5,7 @@ import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Platform, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { EASE_IN_OUT } from '../../src/lib/motion';
 import { Icon, Mark } from '../../src/components/Icon';
 import { PackArt } from '../../src/components/Thumb';
 import { Button, Caps, Press, ViewHead } from '../../src/components/ui';
@@ -30,10 +31,12 @@ export default function Rewards() {
     return () => clearInterval(id);
   }, []);
   useEffect(() => {
-    flip.value = withTiming(flipped ? 1 : 0, { duration: 600 });
+    // Turning over on the spot: ease-in-out, and a tap mid-turn reverses it
+    // from wherever it is.
+    flip.set(withTiming(flipped ? 1 : 0, { duration: 420, easing: EASE_IN_OUT }));
   }, [flipped, flip]);
-  const front = useAnimatedStyle(() => ({ opacity: flip.value < 0.5 ? 1 : 0, transform: [{ perspective: 1000 }, { rotateY: `${flip.value * 180}deg` }] }));
-  const back = useAnimatedStyle(() => ({ opacity: flip.value >= 0.5 ? 1 : 0, transform: [{ perspective: 1000 }, { rotateY: `${(flip.value - 1) * 180}deg` }] }));
+  const front = useAnimatedStyle(() => ({ opacity: flip.get() < 0.5 ? 1 : 0, transform: [{ perspective: 1000 }, { rotateY: `${flip.get() * 180}deg` }] }));
+  const back = useAnimatedStyle(() => ({ opacity: flip.get() >= 0.5 ? 1 : 0, transform: [{ perspective: 1000 }, { rotateY: `${(flip.get() - 1) * 180}deg` }] }));
 
   if (!s) return null;
   const next = nextVip(s.volume);

@@ -47,39 +47,60 @@ directional; the patterns are consistent across them.
 
 ## The flow we built
 
-No payment is asked for anywhere in onboarding. It uses the website's
-visual language (same tokens and components) rather than a separate
-onboarding style.
+One continuous scene rather than a stack of pages: a sealed pack stays on
+stage the whole way and reacts to each answer, and Pip (the logo's hexagon,
+given a face) comments on what you pick. It borrows patterns from Luma's and
+Ahead's onboarding (a lit-up logo intro, orbit rings, sign-up as a sheet over
+the scene, an email code step, a big profile avatar, a lock-screen preview for
+notifications) in the website's own tokens and components. No payment is
+asked for anywhere.
 
-1. **Welcome** — the three pack designs on the store's soft stage light, one
-   line of value, and (on taller phones) a strip of real recent pulls.
-   "Already have an account? Log in" jumps straight to sign-in.
-2. **Age check** — 18+ only. Answering "under 18" is remembered, so the app
-   stays closed rather than letting you tap back and answer again.
-3. **Goals** (multi-select) — chase grails, build a collection, battle,
-   graded slabs, sell for value. Shapes the recommendation and the tour copy.
-4. **Experience** — new, casual or serious. Decides whether Safe mode starts on.
-5. **Format** — raw cards, graded slabs or both (shown with real card and
-   slab art). Picks Starter/Trainer vs Arena/Master.
-6. **Comfortable spend** — a range or "just looking". Sets the recommended
-   pack and a daily spending reminder; it never asks to pay.
-7. **Building your setup** — a short visible step that applies the
-   recommendation.
-8. **Your setup is ready** — the recommended pack with its value range, and
-   Safe mode and the reminder as switches you can change right there (your
-   choices are kept).
-9. **Free welcome pack** — the core moment, opened with the website's own
-   pack-opening ceremony (guaranteed hit or better, and labelled as such).
-10. **Save your pull** — Sign in with Apple (iOS), Google, or email, or skip.
-11. **Collector name** — suggested from the sign-in, never one of the demo's
-    built-in collectors, with an avatar colour.
-12. **Notifications** — a preview of the three kinds of alert, then Turn on /
-    Not now (the system prompt only follows "Turn on").
+1. **Intro** — the logo lights up in the dark, then drifts down into the
+   pack's emblem as the scene fades in and cards fan out onto faint orbit
+   rings. About 1.5s, once; a tap skips it.
+2. **Welcome** — "Your first pack is waiting", or "Log in" for returning
+   collectors.
+3. **Age check** — 18+ only, and an under-18 answer is remembered.
+4. **Goals** (multi-select) — each pick adds a charm that circles the pack.
+5. **Format** — raw cards, graded slabs or both; the pack turns over to the
+   matching design.
+6. **Comfortable spend** — a slider with momentum and soft ends; the pack
+   follows it live. It never asks to pay.
+7. **Experience** — decides whether Safe mode starts on (a shield wraps the
+   pack).
+8. **Sealed** — the recommended pack, with Safe mode and the daily reminder as
+   switches.
+9. **Tear it open** — the website's own ceremony, flying out of the pack on
+   stage. Guaranteed a hit or better, and labelled as such.
+10. **Save your pull** — the card you pulled settles at the top, and sign-up
+    rises as a sheet over the scene: email first, Apple and Google side by
+    side, or skip. The sheet resists a drag rather than dismissing.
+11. **Email and code** (if you chose email) — the card becomes the step's icon
+    in a soft halo; Send code stays disabled until the address is valid and
+    shows a spinner while sending. The six-digit code arrives as a frosted
+    banner (it's a demo, so nothing is emailed); tap it to fill the code in.
+    A wrong code shakes and clears.
+12. **Collector name** — your avatar, live as you type, over a field of the
+    logo's sparkles, with the card tucked behind it.
+13. **Notifications** — a lock screen where three real-looking alerts arrive
+    and stack (the newest is about your card), then Turn on / Not now; the
+    system prompt only follows "Turn on".
 
-Then a six-step spotlight tour: wallet, packs, battles, vault, feed and
-rewards. It shows "2 of 6", Back / Next and Skip, and can be replayed from
-Settings.
+Then the stage irises open into the app while the card flies down into the
+Vault tab, which pops to catch it, and a six-step spotlight tour starts
+(skippable, "2 of 6", replayable from Settings).
 
-Every step has a progress bar that starts partly filled, a back button,
-large tap targets and haptic feedback. Progress, answers and the sign-in are
-saved as you go, so relaunching resumes where you left off.
+Progress, answers and the sign-in are saved as you go, so relaunching resumes
+where you left off. The progress bar starts partly filled.
+
+## Motion rules
+
+All motion uses the tokens in `src/lib/motion.ts` (from Emil Kowalski's
+animation guidance): ease-out for anything entering or leaving, ease-in-out
+for things moving on screen, never ease-in; UI motion under 300ms; springs
+given as `{ duration, dampingRatio }` with bounce only after a flick (or for
+Pip, the one playful thing on screen); nothing grows from `scale(0)`. Drags
+project momentum and hand their velocity to the spring, edges rubber-band,
+and haptics fire on the same frame as the visual, once per action. Reduced
+motion keeps the fades and drops the travel. Tab switches and other
+many-times-a-day actions don't animate.

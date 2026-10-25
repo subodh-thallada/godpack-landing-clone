@@ -179,7 +179,7 @@ function mountOther(view, { scope, openAuth, toast, navigate }, handle) {
   view.innerHTML = html`${raw(
       viewHead(
         handle,
-        `<span class="profile-handle">@${handle}</span>${p.bio ? `<span class="profile-bio">${p.bio}</span>` : ''}<span class="collector-stats"><span><strong class="num">${pulls.length}</strong> Vaulted</span><button type="button" data-list="followers"><strong class="num" data-followers>${p.followers + (isFollowing(handle) ? 1 : 0)}</strong> Followers</button><button type="button" data-list="following"><strong class="num">${p.following}</strong> Following</button><span><strong class="num">${p.packsOpened.toLocaleString('en-US')}</strong> Packs opened</span></span>`,
+        `<span class="profile-handle">@${handle}</span>${p.bio ? `<span class="profile-bio">${p.bio}</span>` : ''}<span class="collector-stats"><span><strong class="num">${pulls.length.toLocaleString('en-US')}</strong> Vaulted</span><button type="button" data-list="followers"><strong class="num" data-followers>${p.followers + (isFollowing(handle) ? 1 : 0)}</strong> Followers</button><button type="button" data-list="following"><strong class="num">${p.following}</strong> Following</button><span><strong class="num">${p.packsOpened.toLocaleString('en-US')}</strong> Packs opened</span></span>`,
         { avatar: avatarOf(p, 72) },
       ),
     )}
@@ -258,7 +258,7 @@ function mountMine(view, { scope, openAuth, toast, navigate }) {
   let sort = SORTS[0];
 
   const stats = () =>
-    `<span class="profile-stats">@${me.handle} · <strong class="num">${me.vault.length}</strong> Vaulted · <button class="link" type="button" data-list="followers"><strong class="num">${me.followers.length}</strong> Followers</button> · <button class="link" type="button" data-list="following"><strong class="num">${me.following.length}</strong> Following</button></span>${me.bio ? `<span class="profile-bio">${me.bio}</span>` : ''}`;
+    `<span class="profile-stats">@${me.handle} · <strong class="num">${me.vault.length.toLocaleString('en-US')}</strong> Vaulted · <button class="link" type="button" data-list="followers"><strong class="num">${me.followers.length.toLocaleString('en-US')}</strong> ${me.followers.length === 1 ? 'Follower' : 'Followers'}</button> · <button class="link" type="button" data-list="following"><strong class="num">${me.following.length}</strong> Following</button></span>${me.bio ? `<span class="profile-bio">${me.bio}</span>` : ''}`;
 
   view.innerHTML = html` ${raw(viewHead(me.name, stats(), { avatar: avatarOf(me, 72) }))}
     <div class="profile-actions">
@@ -300,7 +300,7 @@ function mountMine(view, { scope, openAuth, toast, navigate }) {
       <dl class="portfolio__stats">
         <div class="pstat pstat--opens">
           <dt>Packs opened</dt>
-          <dd class="num">${me.opened}</dd>
+          <dd class="num">${me.opened.toLocaleString('en-US')}</dd>
         </div>
         <div class="pstat pstat--largest">
           <dt>Largest pull</dt>

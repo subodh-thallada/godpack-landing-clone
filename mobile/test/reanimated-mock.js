@@ -44,10 +44,18 @@ module.exports = {
   __esModule: true,
   default: Animated,
   ...Animated,
-  useSharedValue: (v) => React.useRef({ value: v }).current,
+  useSharedValue: (v) => {
+    const ref = React.useRef(null);
+    if (!ref.current) {
+      const sv = { value: v, get: () => sv.value, set: (n) => (sv.value = typeof n === 'function' ? n(sv.value) : n) };
+      ref.current = sv;
+    }
+    return ref.current;
+  },
   useAnimatedStyle: (fn) => fn(),
   useAnimatedProps: (fn) => fn(),
   useAnimatedScrollHandler: () => () => {},
+  useAnimatedReaction: () => {},
   useReducedMotion: () => true,
   withTiming: done,
   withSpring: done,
@@ -56,17 +64,31 @@ module.exports = {
   withSequence: (...values) => values[values.length - 1],
   cancelAnimation: () => {},
   interpolate,
+  Extrapolation: { CLAMP: 'clamp', EXTEND: 'extend', IDENTITY: 'identity' },
+  ReduceMotion: { System: 'system', Always: 'always', Never: 'never' },
   runOnJS: (fn) => fn,
   Easing,
+  // CSS timing functions are plain descriptors here.
+  cubicBezier: (x1, y1, x2, y2) => ({ name: 'cubicBezier', x1, y1, x2, y2 }),
+  linear: (...points) => ({ name: 'linear', points }),
+  steps: (n, modifier) => ({ name: 'steps', n, modifier }),
   FadeIn: chain(),
   FadeInDown: chain(),
   FadeInUp: chain(),
   FadeInLeft: chain(),
+  FadeInRight: chain(),
   FadeOut: chain(),
   FadeOutDown: chain(),
+  FadeOutLeft: chain(),
+  FadeOutRight: chain(),
+  FadeOutUp: chain(),
   SlideInDown: chain(),
   SlideInLeft: chain(),
   SlideInRight: chain(),
+  SlideInUp: chain(),
+  SlideOutDown: chain(),
+  SlideOutUp: chain(),
   ZoomIn: chain(),
+  ZoomOut: chain(),
   LinearTransition: chain(),
 };

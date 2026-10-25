@@ -1015,7 +1015,7 @@ button.pd-cta.pd-cta--alt{border:1px solid #3a3849}
           { transform: this.tokenAt(tr.x + tr.w / 2, tr.y + tr.h / 2, 1), opacity: 1 },
           { transform: this.tokenAt(tr.x + tr.w / 2, tr.y + tr.h / 2 + sr.h * 0.08, 0.94), opacity: 0 },
         ],
-        { duration: reduced ? 1 : 360, easing: 'ease-in', fill: 'forwards' },
+        { duration: reduced ? 1 : 360, easing: 'cubic-bezier(0.23, 1, 0.32, 1)', fill: 'forwards' },
       );
       this.cardEl.style.visibility = 'visible';
       this.cardEl.animate(

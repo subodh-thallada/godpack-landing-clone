@@ -5,7 +5,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Platform, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeIn, FadeInDown, SlideInDown } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
+import { fadeIn, sheetIn, staggered } from '../../src/lib/motion';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FollowRow } from '../../src/components/FollowRow';
 import { Post } from '../../src/components/Hits';
@@ -77,7 +78,7 @@ function AllFeed({ onShare }: { onShare: (p: Pull) => void }) {
     <View style={{ gap: 10 }} testID="feed-all">
       <DayLabel>Today</DayLabel>
       {list.map((h, i) => (
-        <Animated.View key={h.uid} entering={FadeInDown.delay(Math.min(i, 8) * 35).duration(240)}>
+        <Animated.View key={h.uid} entering={staggered(i)}>
           <Post hit={h} latest={i === 0} onShare={onShare} />
         </Animated.View>
       ))}
@@ -114,7 +115,7 @@ function BattleList() {
   return (
     <View style={{ gap: 10 }} testID="feed-battles">
       {list.map((bt, i) => (
-        <Animated.View key={bt.seed} entering={FadeInDown.delay(i * 35).duration(240)} style={styles.bt}>
+        <Animated.View key={bt.seed} entering={staggered(i)} style={styles.bt}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <Press onPress={() => go(`/profile/${bt.a.handle}`)} style={styles.side} accessibilityLabel={`@${bt.a.handle}`}>
               <Avatar handle={bt.a.handle} color={bt.a.color} size={28} />
@@ -176,7 +177,7 @@ function Leaderboard() {
         ))}
       </ScrollView>
       {list.map((l, i) => (
-        <Animated.View key={`${range}-${mode}-${i}`} entering={FadeIn.delay(i * 30)} style={styles.lb}>
+        <View key={`${range}-${mode}-${i}`} style={styles.lb}>
           {i < 3 ? (
             <LinearGradient colors={[MEDALS[i][0], MEDALS[i][1]]} start={{ x: 0.3, y: 0.2 }} end={{ x: 0.8, y: 1 }} style={styles.medal}>
               <Text style={{ color: MEDALS[i][2], fontWeight: '800', fontSize: 13 }}>{i + 1}</Text>
@@ -200,7 +201,7 @@ function Leaderboard() {
             <Text style={type.caps}>{mode === 'volume' ? 'Opened' : 'Card / pack'}</Text>
           </View>
           {mode === 'pulls' ? <Thumb id={l.card.id} width={34} glow={false} /> : null}
-        </Animated.View>
+        </View>
       ))}
     </View>
   );
@@ -232,10 +233,10 @@ function ShareSheet({ pull, onClose, bottom }: { pull: Pull; onClose: () => void
   };
   return (
     <View style={StyleSheet.absoluteFill}>
-      <Animated.View entering={FadeIn.duration(150)} style={[StyleSheet.absoluteFill, { backgroundColor: colors.overlay }]}>
+      <Animated.View entering={fadeIn} style={[StyleSheet.absoluteFill, { backgroundColor: colors.overlay }]}>
         <Press haptic={false} scaleTo={1} accessibilityLabel="Close" onPress={onClose} style={StyleSheet.absoluteFill} />
       </Animated.View>
-      <Animated.View entering={SlideInDown.duration(260)} style={[styles.share, { paddingBottom: bottom + 16 }]} testID="share-sheet">
+      <Animated.View entering={sheetIn} style={[styles.share, { paddingBottom: bottom + 16 }]} testID="share-sheet">
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 4 }}>
           <Thumb id={pull.card.id} tier={pull.tier} width={40} glow={false} />
           <View style={{ flex: 1 }}>

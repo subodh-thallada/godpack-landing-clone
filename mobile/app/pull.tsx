@@ -3,7 +3,8 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { go } from '../src/lib/nav';
 import { Text, View, useWindowDimensions } from 'react-native';
-import Animated, { ZoomIn } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
+import { scaleIn } from '../src/lib/motion';
 import { Thumb } from '../src/components/Thumb';
 import { Avatar, Button, Press, Sheet } from '../src/components/ui';
 import { cardById, packById, user } from '../src/data';
@@ -26,7 +27,7 @@ export default function PullDetail() {
   };
   return (
     <Sheet title={card.name} testID="pull-sheet">
-      <Animated.View entering={ZoomIn.springify().damping(15)} style={{ alignItems: 'center', paddingVertical: 8 }}>
+      <Animated.View entering={scaleIn} style={{ alignItems: 'center', paddingVertical: 8 }}>
         <Thumb id={card.id} graded={slab} tier={p.tier} width={w} large />
       </Animated.View>
       <View style={{ alignItems: 'center', gap: 2 }}>

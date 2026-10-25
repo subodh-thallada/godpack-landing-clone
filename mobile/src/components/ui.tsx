@@ -1,7 +1,7 @@
 // Shared building blocks, styled to match the web app's components
 // (.btn, .chip, .panel, .surface, .field, .switch, .icon-btn, .dialog).
 import { router } from 'expo-router';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -19,9 +19,13 @@ import {
   View,
   type ViewStyle,
 } from 'react-native';
-import Animated, { FadeIn, SlideInDown, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, { Extrapolation, interpolate, useAnimatedStyle, useReducedMotion, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { num } from '../lib/format';
 import { tap } from '../lib/haptics';
+import { DUR, EASE_OUT, SHEET, T_PRESS, fadeIn, project, rubberband, sheetIn } from '../lib/motion';
 import { colors, radius, type } from '../theme';
 import { Icon, type IconName } from './Icon';
 
@@ -31,29 +35,32 @@ const cursor = web ? ({ cursor: 'pointer' } as ViewStyle) : null;
 
 type PressProps = PressableProps & { style?: StyleProp<ViewStyle>; scaleTo?: number; haptic?: boolean; children?: ReactNode };
 
-// A pressable that eases down a little while held (.btn:active scale .98).
-export function Press({ style, scaleTo = 0.98, haptic = true, onPressIn, onPressOut, onPress, disabled, children, ...rest }: PressProps) {
-  const s = useSharedValue(1);
-  const anim = useAnimatedStyle(() => ({ transform: [{ scale: s.value }] }));
+// A pressable that eases down a little while held (.btn:active scale .97):
+// feedback on press-in, a 120ms CSS transition, nothing re-rendering per
+// frame. A slight finger drift doesn't cancel the press. Haptics are opt-in
+// (for selections), not on every tap.
+export function Press({ style, scaleTo = 0.97, haptic = false, onPressIn, onPressOut, onPress, disabled, children, ...rest }: PressProps) {
+  const [pressed, setPressed] = useState(false);
   return (
     <AnimatedPressable
+      pressRetentionOffset={16}
       {...rest}
       disabled={disabled}
       accessibilityRole={rest.accessibilityRole ?? 'button'}
       accessibilityState={{ disabled: !!disabled, ...(rest.accessibilityState ?? {}) }}
       onPressIn={(e) => {
-        s.value = withTiming(scaleTo, { duration: 80 });
+        setPressed(true);
         onPressIn?.(e);
       }}
       onPressOut={(e) => {
-        s.value = withSpring(1, { damping: 16, stiffness: 300 });
+        setPressed(false);
         onPressOut?.(e);
       }}
       onPress={(e) => {
         if (haptic) tap();
         onPress?.(e);
       }}
-      style={[cursor, style, anim]}
+      style={[cursor, styles.press, T_PRESS, style, pressed && !disabled ? { transform: [{ scale: scaleTo }] } : null]}
     >
       {children}
     </AnimatedPressable>
@@ -99,7 +106,7 @@ export function Button({ label, onPress, variant = 'primary', size = 'md', icon,
       onPress={onPress}
       disabled={disabled || loading}
       hitSlop={size === 'sm' ? 6 : undefined}
-      style={[styles.btn, v.box, { minHeight: h, paddingHorizontal: size === 'sm' ? 14 : 18 }, (disabled || loading) && { opacity: 0.45 }, style]}
+      style={[styles.btn, v.box, { minHeight: h, paddingHorizontal: size === 'sm' ? 14 : 18 }, disabled && !loading && { opacity: 0.45 }, style]}
     >
       {loading ? (
         <ActivityIndicator color={v.fg} />
@@ -120,7 +127,7 @@ export function Button({ label, onPress, variant = 'primary', size = 'md', icon,
 // .chip — the active chip is white with dark text.
 export function Chip({ label, on, onPress, testID, icon }: { label: string; on?: boolean; onPress?: () => void; testID?: string; icon?: IconName }) {
   return (
-    <Press testID={testID} onPress={onPress} hitSlop={6} accessibilityState={{ selected: !!on }} style={[styles.chip, on && styles.chipOn]}>
+    <Press testID={testID} onPress={onPress} hitSlop={6} haptic accessibilityState={{ selected: !!on }} style={[styles.chip, on && styles.chipOn]}>
       {icon ? <Icon name={icon} size={14} color={on ? '#0b0a12' : colors.label2} /> : null}
       <Text style={[styles.chipText, on && { color: '#0b0a12' }]}>{label}</Text>
     </Press>
@@ -153,7 +160,8 @@ export function T({ children, style, variant = 'body', numberOfLines, testID }: 
 }
 
 // .field
-export function Field({ label, error, style, onFocus, onBlur, ...props }: TextInputProps & { label?: string; error?: string | null }) {
+// `big` is the roomy single-question field used in onboarding.
+export function Field({ label, error, style, onFocus, onBlur, big, ...props }: TextInputProps & { label?: string; error?: string | null; big?: boolean }) {
   const [focused, setFocused] = useState(false);
   return (
     <View style={[{ gap: 6 }, style as StyleProp<ViewStyle>]}>
@@ -171,7 +179,7 @@ export function Field({ label, error, style, onFocus, onBlur, ...props }: TextIn
           setFocused(false);
           onBlur?.(e);
         }}
-        style={[styles.field, focused && styles.fieldFocus, error ? { borderColor: colors.danger } : null, web ? ({ outlineStyle: 'none' } as unknown as TextStyle) : null]}
+        style={[styles.field, big && styles.fieldBig, focused && styles.fieldFocus, error ? { borderColor: colors.danger } : null, web ? ({ outlineStyle: 'none' } as unknown as TextStyle) : null]}
       />
       {error ? <Text style={{ color: colors.danger, fontSize: 13, fontWeight: '500' }}>{error}</Text> : null}
     </View>
@@ -281,33 +289,84 @@ export function Screen({ title, children, right, scroll = true, testID, footer }
 }
 
 // A bottom sheet over the current screen (.dialog), with a text Close like
-// the website's dialogs. Tapping the dimmed backdrop also closes it.
+// the website's dialogs. Tapping the dimmed backdrop also closes it, and so
+// does flicking the handle down: a fast short flick is enough, a slow drag
+// has to pass 40%, and anything less springs home with the finger's speed.
+// It leaves the way it came in, and the backdrop follows the sheet.
 export function Sheet({ title, children, testID, onClose, scroll = true, closeLabel = 'Close' }: { title: string; children: ReactNode; testID?: string; onClose?: () => void; scroll?: boolean; closeLabel?: string }) {
   const insets = useSafeAreaInsets();
-  const close = onClose ?? goBack;
+  const reduced = useReducedMotion();
+  // The gesture is built once, so it reaches the latest onClose through a ref.
+  const latest = useRef(onClose ?? goBack);
+  latest.current = onClose ?? goBack;
+  const close = () => latest.current();
+  const y = useSharedValue(0);
+  const h = useSharedValue(600);
+  const start = useSharedValue(0);
+  const closing = useSharedValue(false);
+
+  const dismiss = () => {
+    if (closing.get()) return;
+    closing.set(true);
+    if (reduced) return close();
+    y.set(withTiming(h.get(), { duration: DUR.ui - 20, easing: EASE_OUT }, (f) => f && scheduleOnRN(close)));
+  };
+
+  const pan = useMemo(
+    () =>
+      Gesture.Pan()
+        .activeOffsetY([-8, 8])
+        .onStart(() => {
+          start.set(y.get());
+        })
+        .onUpdate((e) => {
+          const next = start.get() + e.translationY;
+          y.set(next >= 0 ? next : rubberband(next, h.get()));
+        })
+        .onEnd((e) => {
+          if (y.get() + project(e.velocityY) > h.get() * 0.4) {
+            closing.set(true);
+            y.set(withSpring(h.get(), { ...SHEET, dampingRatio: 1, velocity: e.velocityY, overshootClamping: true }, (f) => f && scheduleOnRN(close)));
+          } else {
+            y.set(withSpring(0, { ...SHEET, velocity: e.velocityY }));
+          }
+        }),
+    [y, h, start, closing],
+  );
+  const sheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: y.get() }] }));
+  const backdropStyle = useAnimatedStyle(() => ({ opacity: interpolate(y.get(), [0, h.get()], [1, 0], Extrapolation.CLAMP) }));
+
   return (
     <View style={StyleSheet.absoluteFill}>
-      <Animated.View entering={FadeIn.duration(180)} style={[StyleSheet.absoluteFill, { backgroundColor: colors.overlay }]}>
-        <Pressable accessibilityLabel="Dismiss" style={StyleSheet.absoluteFill} onPress={close} />
+      <Animated.View entering={fadeIn} style={StyleSheet.absoluteFill}>
+        <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: colors.overlay }, backdropStyle]}>
+          <Pressable accessibilityLabel="Dismiss" style={StyleSheet.absoluteFill} onPress={dismiss} />
+        </Animated.View>
       </Animated.View>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.sheetWrap} pointerEvents="box-none">
-        <Animated.View testID={testID} entering={SlideInDown.duration(280)} style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]} accessibilityViewIsModal>
-          <View style={styles.grab} />
-          <View style={styles.sheetHead}>
-            <Text style={[type.h3, { flex: 1, fontSize: 20 }]} accessibilityRole="header" numberOfLines={1}>
-              {title}
-            </Text>
-            <Press onPress={close} testID="sheet-close" accessibilityLabel={closeLabel} hitSlop={10} style={{ paddingVertical: 6, paddingLeft: 12 }}>
-              <Text style={{ color: colors.accentSoft, fontWeight: '600', fontSize: 15 }}>{closeLabel}</Text>
-            </Press>
-          </View>
-          {scroll ? (
-            <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 8, gap: 14 }} keyboardShouldPersistTaps="handled">
-              {children}
-            </ScrollView>
-          ) : (
-            <View style={{ paddingHorizontal: 20, gap: 14 }}>{children}</View>
-          )}
+        <Animated.View entering={sheetIn} style={styles.sheetDock}>
+          <Animated.View testID={testID} onLayout={(e) => h.set(e.nativeEvent.layout.height)} style={[styles.sheet, { paddingBottom: insets.bottom + 16 }, sheetStyle]} accessibilityViewIsModal>
+            <GestureDetector gesture={pan}>
+              <View>
+                <View style={styles.grab} />
+                <View style={styles.sheetHead}>
+                  <Text style={[type.h3, { flex: 1, fontSize: 20 }]} accessibilityRole="header" numberOfLines={1}>
+                    {title}
+                  </Text>
+                  <Press onPress={dismiss} testID="sheet-close" accessibilityLabel={closeLabel} hitSlop={10} style={{ paddingVertical: 6, paddingLeft: 12 }}>
+                    <Text style={{ color: colors.accentSoft, fontWeight: '600', fontSize: 15 }}>{closeLabel}</Text>
+                  </Press>
+                </View>
+              </View>
+            </GestureDetector>
+            {scroll ? (
+              <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 8, gap: 14 }} keyboardShouldPersistTaps="handled">
+                {children}
+              </ScrollView>
+            ) : (
+              <View style={{ paddingHorizontal: 20, gap: 14 }}>{children}</View>
+            )}
+          </Animated.View>
         </Animated.View>
       </KeyboardAvoidingView>
     </View>
@@ -328,13 +387,14 @@ export function Stat({ label, value, money, center, testID }: { label: string; v
     <View style={[{ gap: 2 }, center && { flex: 1, alignItems: 'center' }]}>
       <Text style={type.caps}>{label}</Text>
       <Text testID={testID} style={{ color: money ? colors.money : colors.text, fontWeight: '700', fontSize: center ? 20 : 26, letterSpacing: -0.4, fontVariant: ['tabular-nums'] }}>
-        {value}
+        {typeof value === 'number' ? num(value) : value}
       </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  press: { transform: [{ scale: 1 }] },
   btn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   chip: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 32, paddingHorizontal: 12, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.line },
   chipOn: { backgroundColor: colors.label, borderColor: colors.label },
@@ -344,6 +404,7 @@ const styles = StyleSheet.create({
   fieldLabel: { color: colors.label2, fontSize: 13, fontWeight: '600' },
   field: { minHeight: 46, borderRadius: radius.field, borderWidth: 1, borderColor: colors.fieldLine, backgroundColor: colors.surface2, color: colors.text, paddingHorizontal: 14, fontSize: 16 },
   fieldFocus: { borderColor: colors.focus },
+  fieldBig: { minHeight: 56, borderRadius: radius.md, fontSize: 18, fontWeight: '500', paddingHorizontal: 16 },
   section: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   empty: { alignItems: 'center', gap: 8, paddingVertical: 36, paddingHorizontal: 20 },
   iconBtn: { width: 44, height: 44, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center' },
@@ -354,7 +415,8 @@ const styles = StyleSheet.create({
   screenTitle: { flex: 1, textAlign: 'center', color: colors.text, fontSize: 17, fontWeight: '700' },
   footer: { paddingHorizontal: 16, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.line, backgroundColor: colors.bg },
   sheetWrap: { flex: 1, justifyContent: 'flex-end' },
-  sheet: { maxHeight: '90%', backgroundColor: colors.dialog, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, borderWidth: 1, borderBottomWidth: 0, borderColor: colors.dialogLine },
+  sheetDock: { maxHeight: '90%' },
+  sheet: { flexShrink: 1, backgroundColor: colors.dialog, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, borderWidth: 1, borderBottomWidth: 0, borderColor: colors.dialogLine },
   grab: { alignSelf: 'center', width: 36, height: 5, borderRadius: 3, backgroundColor: colors.lineStrong, marginTop: 8 },
   sheetHead: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 12, paddingBottom: 14 },
 });

@@ -33,12 +33,15 @@ export default function Ceremony({
   pack,
   card,
   actions,
+  from,
   onAction,
   onClose,
 }: {
   pack: number;
   card: Card;
   actions: Action[];
+  // Where the pack is on screen when the ceremony starts, so it can fly in from there.
+  from?: { x: number; y: number; w: number; h: number };
   onAction: (index: number) => Promise<void>;
   onClose: () => Promise<void>;
   dom?: DOMProps;
@@ -57,6 +60,7 @@ export default function Ceremony({
           root: root.current,
           pack,
           card,
+          from,
           keyboard: false,
           actions: actions.map((a, i) => ({ ...a, onClick: () => onAction(i) })),
           onClose: () => {

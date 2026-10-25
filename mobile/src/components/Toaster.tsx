@@ -2,8 +2,9 @@
 // screen readers.
 import { useEffect } from 'react';
 import { AccessibilityInfo, StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeInDown, FadeOutDown } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { toastIn, toastOut } from '../lib/motion';
 import { dismissToast, useToast } from '../lib/toast';
 import { colors } from '../theme';
 import { Press } from './ui';
@@ -17,7 +18,7 @@ export function Toaster() {
   return (
     <View pointerEvents="box-none" style={[StyleSheet.absoluteFill, { justifyContent: 'flex-end', alignItems: 'center', paddingBottom: insets.bottom + 128 }]}>
       {current ? (
-        <Animated.View key={current.id} entering={FadeInDown.duration(220)} exiting={FadeOutDown.duration(160)} accessibilityLiveRegion="polite">
+        <Animated.View key={current.id} entering={toastIn} exiting={toastOut} accessibilityLiveRegion="polite">
           <Press onPress={dismissToast} haptic={false} accessibilityLabel={current.text} testID="toast" style={styles.toast}>
             <Text style={[styles.text, current.tone === 'warn' && { color: colors.gold }]}>{current.text}</Text>
           </Press>

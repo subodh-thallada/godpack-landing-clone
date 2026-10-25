@@ -8,8 +8,9 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useRef, useState } from 'react';
-import { Platform, Text, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import { Platform, type StyleProp, Text, View, type ViewStyle } from 'react-native';
+import Animated from 'react-native-reanimated';
+import { dropIn } from '../lib/motion';
 import { Cancelled, type Identity, appleAvailable, googleClientIds, googleConfigured, identityFromIdToken, signInWithApple, validEmail } from '../lib/auth';
 import { toast } from '../lib/toast';
 import { colors, type } from '../theme';
@@ -18,9 +19,11 @@ import { Button, Field, Press } from './ui';
 
 WebBrowser.maybeCompleteAuthSession();
 
-type Props = { onIdentity: (id: Identity) => void; allowSkip?: boolean };
+// With onEmail, email is the primary path (it goes on to its own step) and
+// Apple and Google sit side by side under it; without, email opens inline.
+type Props = { onIdentity: (id: Identity) => void; allowSkip?: boolean; onEmail?: () => void };
 
-export function AuthButtons({ onIdentity, allowSkip = true }: Props) {
+export function AuthButtons({ onIdentity, allowSkip = true, onEmail }: Props) {
   // iOS asks the system whether Sign in with Apple is available; until it
   // answers, nothing is shown in its place (no placeholder flash).
   const [apple, setApple] = useState<'native' | 'web' | 'none' | 'pending'>(Platform.OS === 'ios' ? 'pending' : Platform.OS === 'web' ? 'web' : 'none');
@@ -54,6 +57,40 @@ export function AuthButtons({ onIdentity, allowSkip = true }: Props) {
     onIdentity({ name: '', email: email.trim().toLowerCase(), provider: 'email', demo: true });
   };
 
+  const skip = allowSkip ? (
+    <Press onPress={() => onIdentity({ name: '', provider: 'guest', demo: true })} testID="auth-skip" style={{ alignSelf: 'center', padding: 10 }}>
+      <Text style={{ color: colors.muted, fontWeight: '600', fontSize: 15 }}>Skip for now</Text>
+    </Press>
+  ) : null;
+
+  if (onEmail) {
+    const half = { flex: 1, minHeight: 52 } as const;
+    return (
+      <View style={{ gap: 10 }}>
+        <Button label="Continue with email" variant="buy" icon="mail" onPress={onEmail} testID="auth-email" />
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          {apple === 'native' ? (
+            <AppleAuthentication.AppleAuthenticationButton
+              buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+              buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+              cornerRadius={26}
+              style={{ flex: 1, height: 52 }}
+              onPress={signInApple}
+            />
+          ) : null}
+          {apple === 'pending' ? <View style={half} /> : null}
+          {apple === 'web' ? <Button label="Apple" accessibilityLabel="Continue with Apple" variant="light" left={<Icon name="apple" size={19} color="#111" />} onPress={signInApple} testID="auth-apple" style={half} /> : null}
+          {googleConfigured ? (
+            <RealGoogle onIdentity={onIdentity} short style={half} />
+          ) : (
+            <Button label="Google" accessibilityLabel="Continue with Google" variant="light" left={<GoogleG size={18} />} onPress={() => onIdentity({ name: '', provider: 'google', demo: true })} testID="auth-google" style={half} />
+          )}
+        </View>
+        {skip}
+      </View>
+    );
+  }
+
   return (
     <View style={{ gap: 12 }}>
       {apple === 'native' ? (
@@ -73,7 +110,7 @@ export function AuthButtons({ onIdentity, allowSkip = true }: Props) {
         <Button label="Continue with Google" variant="light" left={<GoogleG size={18} />} onPress={() => onIdentity({ name: '', provider: 'google', demo: true })} testID="auth-google" />
       )}
       {showEmail ? (
-        <Animated.View entering={FadeInDown.duration(200)} style={{ gap: 10 }}>
+        <Animated.View entering={dropIn} style={{ gap: 10 }}>
           <Field
             label="Email"
             value={email}
@@ -98,18 +135,14 @@ export function AuthButtons({ onIdentity, allowSkip = true }: Props) {
       ) : (
         <Button label="Continue with email" variant="secondary" icon="mail" onPress={() => setShowEmail(true)} testID="auth-email" style={{ minHeight: 54, borderRadius: 27 }} />
       )}
-      {allowSkip ? (
-        <Press onPress={() => onIdentity({ name: '', provider: 'guest', demo: true })} testID="auth-skip" style={{ alignSelf: 'center', padding: 10 }}>
-          <Text style={{ color: colors.muted, fontWeight: '600', fontSize: 15 }}>Skip for now</Text>
-        </Press>
-      ) : null}
+      {skip}
     </View>
   );
 }
 
 // Google sign-in through the system browser; only rendered when client IDs
 // are configured.
-function RealGoogle({ onIdentity }: { onIdentity: (id: Identity) => void }) {
+function RealGoogle({ onIdentity, short, style }: { onIdentity: (id: Identity) => void; short?: boolean; style?: StyleProp<ViewStyle> }) {
   const [request, response, prompt] = Google.useIdTokenAuthRequest(googleClientIds);
   const latest = useRef(onIdentity);
   latest.current = onIdentity;
@@ -117,5 +150,5 @@ function RealGoogle({ onIdentity }: { onIdentity: (id: Identity) => void }) {
     if (response?.type === 'success' && response.params.id_token) latest.current(identityFromIdToken(response.params.id_token));
     else if (response?.type === 'error') toast('Google sign-in did not finish. Try again or use another option.', 'warn');
   }, [response]);
-  return <Button label="Continue with Google" variant="light" left={<GoogleG size={18} />} disabled={!request} onPress={() => prompt()} testID="auth-google" />;
+  return <Button label={short ? 'Google' : 'Continue with Google'} accessibilityLabel="Continue with Google" variant="light" left={<GoogleG size={18} />} disabled={!request} onPress={() => prompt()} testID="auth-google" style={style} />;
 }

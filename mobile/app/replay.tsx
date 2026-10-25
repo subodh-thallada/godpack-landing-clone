@@ -5,7 +5,8 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
-import Animated, { FadeIn, FadeInUp, useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
+import { EASE_IN_OUT, fadeIn, riseIn } from '../src/lib/motion';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Mark } from '../src/components/Icon';
 import { Thumb } from '../src/components/Thumb';
@@ -108,7 +109,7 @@ export default function Replay() {
           ))}
         </View>
         {done ? (
-          <Animated.View entering={FadeInUp.duration(280)} style={{ gap: 14, alignItems: 'center' }}>
+          <Animated.View entering={riseIn} style={{ gap: 14, alignItems: 'center' }}>
             <Text style={styles.result} testID="replay-result">
               {mine ? (aWins ? `You won all ${each * 2} cards` : `@${b.handle} takes all ${each * 2} cards`) : `@${winner.handle} takes all ${each * 2} cards`}
             </Text>
@@ -137,10 +138,10 @@ export default function Replay() {
 function FlipCard({ card, width, delay }: { card: Drawn; width: number; delay: number }) {
   const f = useSharedValue(delay <= 0 ? 1 : 0);
   useEffect(() => {
-    if (delay > 0) f.value = withDelay(delay, withTiming(1, { duration: 360 }));
+    if (delay > 0) f.set(withDelay(delay, withTiming(1, { duration: 360, easing: EASE_IN_OUT })));
   }, [f, delay]);
-  const back = useAnimatedStyle(() => ({ opacity: f.value < 0.5 ? 1 : 0, transform: [{ perspective: 800 }, { rotateY: `${f.value * 180}deg` }] }));
-  const front = useAnimatedStyle(() => ({ opacity: f.value >= 0.5 ? 1 : 0, transform: [{ perspective: 800 }, { rotateY: `${(f.value - 1) * 180}deg` }] }));
+  const back = useAnimatedStyle(() => ({ opacity: f.get() < 0.5 ? 1 : 0, transform: [{ perspective: 800 }, { rotateY: `${f.get() * 180}deg` }] }));
+  const front = useAnimatedStyle(() => ({ opacity: f.get() >= 0.5 ? 1 : 0, transform: [{ perspective: 800 }, { rotateY: `${(f.get() - 1) * 180}deg` }] }));
   const h = width / (480 / 670);
   return (
     <View style={{ width, alignItems: 'center', gap: 4 }}>
@@ -168,7 +169,7 @@ function ShowAfter({ delay, children }: { delay: number; children: ReactNode }) 
     const t = setTimeout(() => setOn(true), delay);
     return () => clearTimeout(t);
   }, [delay]);
-  return on ? <Animated.View entering={FadeIn.duration(160)}>{children}</Animated.View> : <View style={{ height: 16 }} />;
+  return on ? <Animated.View entering={fadeIn}>{children}</Animated.View> : <View style={{ height: 16 }} />;
 }
 
 function CountUp({ value, start, testID }: { value: number; start: number; testID?: string }) {
