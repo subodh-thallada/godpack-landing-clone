@@ -59,6 +59,38 @@
       ring: 'rgba(122,46,224,0.85)',
       text: 'rgba(98,40,190,0.95)',
     },
+    // The landing page's category packs: the category's name where the
+    // wordmark sits, and an emblem of its own (see the print functions below).
+    pokemon: {
+      seed: 53,
+      irid: 0.18,
+      ramp: ['#6b3300', '#b06300', '#e69a00', '#ffc214', '#ffdd55', '#fff4bf', '#ffffff'],
+      print: 'pokemon',
+      ink: '#16206a',
+      ring: 'rgba(22,32,106,0.55)',
+      text: 'rgba(22,32,106,0.9)',
+    },
+    baseball: {
+      seed: 67,
+      irid: 0.28,
+      ramp: ['#02061a', '#061440', '#0c2a7e', '#1d4ccc', '#6b93ff', '#d4e0ff', '#ffffff'],
+      print: 'baseball',
+      ink: '#ffffff',
+      stitch: '#ff3d3d',
+      ring: 'rgba(255,255,255,0.55)',
+      text: 'rgba(255,255,255,0.92)',
+    },
+    basketball: {
+      seed: 79,
+      irid: 0.16,
+      ramp: ['#1c0600', '#4d1600', '#922f00', '#d8560c', '#ff8b3d', '#ffd3ab', '#ffffff'],
+      print: 'basketball',
+      ink: '#ffffff',
+      seam: '#1f0b03',
+      ball: '#ff7d33',
+      ring: 'rgba(255,255,255,0.55)',
+      text: 'rgba(255,255,255,0.92)',
+    },
   };
 
   // Side margin of the outline at height y.
@@ -288,6 +320,201 @@
 
   // m receives the shapes that print in holographic ink.
   function drawPrint(a, T, m) {
+    var fn = { pokemon: printPokemon, baseball: printBaseball, basketball: printBasketball }[T.print];
+    (fn || printGodpack)(a, T, m);
+  }
+
+  // ---- category packs ----
+  // Same layout as the Godpack packs (title on top, an emblem inside the
+  // orbit ring, a line of small caps at the bottom) so the ring reads as one
+  // family; each has its own ink, emblem and foil.
+
+  var EMBLEM_Y = H * 0.5,
+    EMBLEM_R = W * 0.2;
+
+  function orbit(a, T, front) {
+    a.save();
+    a.translate(W / 2, H * 0.505);
+    a.rotate(-0.2);
+    a.strokeStyle = T.ring;
+    a.lineWidth = 4.5;
+    a.beginPath();
+    a.ellipse(0, 0, W * 0.74, H * 0.16, 0, front ? 0 : Math.PI, front ? Math.PI : Math.PI * 2);
+    a.stroke();
+    a.restore();
+  }
+
+  // The category name, as large as fits the body.
+  function title(a, T, text) {
+    a.save();
+    var size = 150;
+    a.letterSpacing = '-5px';
+    a.font = '700 ' + size + 'px "Hanken Grotesk"';
+    while (a.measureText(text).width > 690 && size > 90) {
+      size -= 2;
+      a.font = '700 ' + size + 'px "Hanken Grotesk"';
+    }
+    a.textAlign = 'center';
+    a.fillStyle = T.ink;
+    a.fillText(text, W / 2, H * 0.262);
+    a.restore();
+  }
+
+  function caps(a, T, text) {
+    a.save();
+    a.font = '600 31px "Hanken Grotesk"';
+    a.letterSpacing = '13px';
+    a.textAlign = 'center';
+    a.fillStyle = T.text;
+    a.fillText(text, W / 2 + 6, H * 0.8);
+    a.restore();
+  }
+
+  function flourish(a, color) {
+    a.fillStyle = color;
+    A.sparkle(a, W * 0.835, H * 0.635, 36, 0.12);
+    a.fill();
+  }
+
+  // Pokémon: a lightning bolt striking through a ring, in deep blue on gold.
+  function printPokemon(a, T) {
+    var cx = W / 2,
+      cy = EMBLEM_Y,
+      R = EMBLEM_R;
+    orbit(a, T, false);
+    title(a, T, 'Pokémon');
+    var bolt = [
+      [0.34, -1.32],
+      [-0.46, 0.14],
+      [-0.03, 0.14],
+      [-0.3, 1.32],
+      [0.5, -0.16],
+      [0.07, -0.16],
+    ];
+    var path = function (c, grow) {
+      c.beginPath();
+      bolt.forEach(function (p, i) {
+        var x = cx + p[0] * R * (1 + grow),
+          y = cy + p[1] * R * (1 + grow * 0.4);
+        if (i) c.lineTo(x, y);
+        else c.moveTo(x, y);
+      });
+      c.closePath();
+    };
+    // Ring, cut where the bolt passes so the bolt sits in front of it.
+    var ring = A.canvas(W, H),
+      r = ring.getContext('2d');
+    r.beginPath();
+    r.arc(cx, cy, R, 0, Math.PI * 2);
+    r.arc(cx, cy, R * 0.74, 0, Math.PI * 2, true);
+    r.fillStyle = T.ink;
+    r.fill();
+    r.globalCompositeOperation = 'destination-out';
+    r.lineJoin = 'round';
+    r.lineWidth = 34;
+    path(r, 0);
+    r.stroke();
+    a.drawImage(ring, 0, 0);
+    a.save();
+    a.lineJoin = 'round';
+    a.lineWidth = 6;
+    a.strokeStyle = T.ink;
+    a.fillStyle = T.ink;
+    path(a, 0);
+    a.fill();
+    a.stroke();
+    a.restore();
+    orbit(a, T, true);
+    flourish(a, T.ink);
+    caps(a, T, 'BOOSTER PACK');
+  }
+
+  // Baseball: a ball with red stitched seams.
+  function printBaseball(a, T) {
+    var cx = W / 2,
+      cy = EMBLEM_Y,
+      R = EMBLEM_R;
+    orbit(a, T, false);
+    title(a, T, 'Baseball');
+    a.save();
+    a.beginPath();
+    a.arc(cx, cy, R, 0, Math.PI * 2);
+    a.fillStyle = T.ink;
+    a.fill();
+    a.clip();
+    // Each seam is an arc of a circle centred outside the ball.
+    [-1, 1].forEach(function (side) {
+      var sx = cx + side * R * 1.42,
+        sr = R * 1.02;
+      var span = Math.acos((R * R - sr * sr - R * 1.42 * (R * 1.42)) / (-2 * sr * R * 1.42)) * 0.92;
+      var mid = side < 0 ? 0 : Math.PI;
+      a.strokeStyle = T.stitch;
+      a.lineWidth = 7;
+      a.beginPath();
+      a.arc(sx, cy, sr, mid - span, mid + span);
+      a.stroke();
+      // Stitches: little chevrons across the seam.
+      a.lineWidth = 6;
+      a.lineCap = 'round';
+      for (var k = -7; k <= 7; k++) {
+        var t = mid + (k / 7.6) * span;
+        var px = sx + Math.cos(t) * sr,
+          py = cy + Math.sin(t) * sr;
+        var nx = Math.cos(t),
+          ny = Math.sin(t),
+          tx = -ny,
+          ty = nx;
+        var L = 17;
+        a.beginPath();
+        a.moveTo(px - nx * L + tx * 7, py - ny * L + ty * 7);
+        a.lineTo(px, py);
+        a.lineTo(px + nx * L + tx * 7, py + ny * L + ty * 7);
+        a.stroke();
+      }
+    });
+    a.restore();
+    orbit(a, T, true);
+    flourish(a, T.ink);
+    caps(a, T, 'HOBBY PACK');
+  }
+
+  // Basketball: the ball's black seams, with the orange foil as the ball.
+  function printBasketball(a, T) {
+    var cx = W / 2,
+      cy = EMBLEM_Y,
+      R = EMBLEM_R;
+    orbit(a, T, false);
+    title(a, T, 'Basketball');
+    a.save();
+    a.beginPath();
+    a.arc(cx, cy, R, 0, Math.PI * 2);
+    a.fillStyle = T.ball;
+    a.fill();
+    a.strokeStyle = T.seam;
+    a.lineWidth = 18;
+    a.stroke();
+    a.beginPath();
+    a.arc(cx, cy, R - 9, 0, Math.PI * 2);
+    a.clip();
+    a.lineWidth = 15;
+    a.beginPath();
+    a.moveTo(cx, cy - R);
+    a.lineTo(cx, cy + R);
+    a.moveTo(cx - R, cy);
+    a.lineTo(cx + R, cy);
+    a.stroke();
+    [-1, 1].forEach(function (side) {
+      a.beginPath();
+      a.arc(cx + side * R * 1.25, cy, R * 0.98, 0, Math.PI * 2);
+      a.stroke();
+    });
+    a.restore();
+    orbit(a, T, true);
+    flourish(a, T.ink);
+    caps(a, T, 'HOBBY PACK');
+  }
+
+  function printGodpack(a, T, m) {
     var cx = W / 2;
     var inkSolid = T.ink === 'purple' ? '#6a1fe0' : '#ffffff';
 

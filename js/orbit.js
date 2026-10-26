@@ -1,7 +1,8 @@
 // Pack carousel.
 //
-// Model: the ring's position is measured in "slots" (one slot = one pack =
-// a quarter turn) and follows a target through a damped spring. A timer
+// Model: the ring's position is measured in "slots" (one slot = one pack,
+// a third of a turn for three packs) and follows a target through a damped
+// spring. A timer
 // moves the target one slot every dwell; dragging writes the position
 // directly and a release snaps the target to the nearest slot in the
 // direction of the flick. Each frame the position is turned into a pose per
@@ -9,7 +10,9 @@
 // the transform (see .booster in css/site.css).
 //
 // Tapping a pack (press and release without travel) rotates it to the front
-// and opens the demo ceremony from js/demo.js, loaded on first press.
+// and opens the demo ceremony from js/demo.js, loaded on first press. The
+// names under the ring (.pack-tabs) follow the front pack; tapping one turns
+// that pack to the front, and tapping the lit one opens it.
 (() => {
   const stage = document.querySelector('.carousel');
   if (!stage || !('requestAnimationFrame' in window)) return;
@@ -17,9 +20,17 @@
   const boosters = [...stage.querySelectorAll('.booster')];
   const halos = [...stage.querySelectorAll('.halo')];
   const rings = [...stage.querySelectorAll('.pulse span')];
-  if (boosters.length !== 4) return;
+  const tabs = document.querySelector('.pack-tabs');
+  const tabButtons = tabs ? [...tabs.querySelectorAll('button')] : [];
+  const marker = tabs && tabs.querySelector('.pack-tabs-marker');
+  if (boosters.length < 3) return;
 
-  const SLOTS = 4;
+  const SLOTS = boosters.length;
+  const STEP = (2 * Math.PI) / SLOTS;
+  // Side packs keep the same lateral offset and depth whatever the count
+  // (the four-pack ring's values), so the front three always look alike.
+  const SIDE_SIN = Math.sin(STEP);
+  const DEPTH_POW = Math.log(0.5) / Math.log(0.5 + 0.5 * Math.cos(STEP));
   const DWELL_MS = 2600;
   const SPRING = { omega: 4, zeta: 0.875 }; // natural frequency (rad/s), damping ratio
   const TAP = { travel: 8, ms: 600 };
@@ -47,9 +58,9 @@
 
   // Depth 1 is the front, 0 the back.
   const placement = (slotPos) => {
-    const theta = slotPos * (Math.PI / 2);
-    const depth = 0.5 + 0.5 * Math.cos(theta);
-    const lateral = Math.sin(theta);
+    const theta = slotPos * STEP;
+    const depth = Math.pow(0.5 + 0.5 * Math.cos(theta), DEPTH_POW);
+    const lateral = Math.sin(theta) / SIDE_SIN;
     return {
       depth,
       x: lateral * 0.618 * packWidth,
@@ -73,7 +84,55 @@
       s.zIndex = 1 + Math.round(p.depth * 200);
       if (halos[i]) halos[i].style.opacity = p.glow.toFixed(3);
     });
+    const front = frontMost();
+    if (front !== shown) showTab(front);
   };
+
+  // ---- pack names ----------------------------------------------------------
+
+  let shown = -1;
+  const placeMarker = () => {
+    const b = tabButtons[shown];
+    if (!marker || !b) return;
+    // The first placement jumps; later ones slide.
+    const first = !marker.dataset.placed;
+    if (first) marker.style.transition = 'none';
+    marker.style.setProperty('--x', b.offsetLeft + 'px');
+    marker.style.setProperty('--w', b.offsetWidth + 'px');
+    if (first) {
+      void marker.offsetWidth;
+      marker.style.transition = '';
+      marker.dataset.placed = '1';
+    }
+  };
+  const showTab = (i) => {
+    shown = i;
+    tabButtons.forEach((b, k) => {
+      if (k === i) b.setAttribute('aria-current', 'true');
+      else b.removeAttribute('aria-current');
+      const name = b.textContent.trim();
+      b.setAttribute('aria-label', k === i ? `${name}: try a demo open` : `Show the ${name} pack`);
+    });
+    placeMarker();
+  };
+
+  // Turn the ring so pack `index` faces front, the shortest way round.
+  const faceFront = (index) => {
+    ring.target = Math.round((ring.pos + index) / SLOTS) * SLOTS - index;
+    kick();
+  };
+
+  tabButtons.forEach((b, i) =>
+    b.addEventListener('click', (e) => {
+      if (demoActive) return;
+      if (i === shown && Math.abs(ring.target - ring.pos) < 0.5) {
+        beginDemo(i, e.detail === 0);
+        return;
+      }
+      faceFront(i);
+      startDwell();
+    }),
+  );
 
   // ---- spring loop --------------------------------------------------------
 
@@ -211,9 +270,7 @@
     if (demoActive || !layer) return;
     demoActive = true;
     stopDwell();
-    // Nearest position at which pack `index` faces front: pos + index ≡ 0 (mod 4).
-    ring.target = Math.round((ring.pos + index) / SLOTS) * SLOTS - index;
-    kick();
+    faceFront(index);
     const ready = loadDemo()
       .then(() => window.PackDemo.preload(index))
       .catch(() => null);
@@ -292,7 +349,10 @@
   window.addEventListener('load', () => {
     readWidth();
     render();
+    placeMarker();
   });
+  if (tabs && 'ResizeObserver' in window) new ResizeObserver(placeMarker).observe(tabs);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(placeMarker);
   if ('ResizeObserver' in window)
     new ResizeObserver(() => {
       readWidth();

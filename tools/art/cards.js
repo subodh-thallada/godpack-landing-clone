@@ -864,9 +864,11 @@
   window.renderSlab = function (i) {
     var S = SLABS[i];
     return slab(S, function (w, h) {
-      return card(S, w, h);
+      return S.sport ? window.sportCard(S, w, h) : card(S, w, h);
     });
   };
+  // Shared with sports.js, which adds the baseball and basketball cards.
+  window.CardArt = { sky: sky, stars: stars, glow: glow, frames: FRAMES, hash: hash };
   var SEALED = {
     id: 'sealed',
     year: 'GODPACK',

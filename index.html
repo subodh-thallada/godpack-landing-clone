@@ -39,6 +39,7 @@
     <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" sizes="180x180" />
     <link rel="preload" href="assets/fonts/hanken-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="css/site.css" />
+    <script src="js/nav.js" defer></script>
     <script src="js/orbit.js" defer></script>
     <script src="js/ribbon.js" defer></script>
     <script src="js/footer.js" defer></script>
@@ -96,57 +97,294 @@
             <path d="M6.3 5.4h1.75l2.2 4.5c.33.66.6 1.3.6 1.3s.3-.63.64-1.31l2.24-4.49h1.6l-3.8 7.15v4.55H10.1v-4.6L6.3 5.4Z" fill="#fff" />
           </svg>
         </a>
+        <nav class="site-nav" aria-label="Godpack features">
+          <ul>
+            <li>
+              <a href="/packs"
+                ><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
+                  <path
+                    d="M12 2.6 3.6 7.2v9.6L12 21.4l8.4-4.6V7.2L12 2.6Zm0 2.3 5.9 3.2L12 11.3 6.1 8.1 12 4.9ZM5.6 9.8l5.4 3v6.1l-5.4-3V9.8Zm7.4 9.1v-6.1l5.4-3v6.1l-5.4 3Z"
+                  /></svg
+                >Packs</a
+              >
+            </li>
+            <li>
+              <a href="/battles"
+                ><svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.9"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                  focusable="false"
+                >
+                  <path d="M4 4l9.5 9.5M4 4v3.2M4 4h3.2M20 4l-9.5 9.5M20 4v3.2M20 4h-3.2" />
+                  <path d="M8.3 15.7 5 19M15.7 15.7 19 19M6.7 13.4l3.9 3.9M17.3 13.4l-3.9 3.9" /></svg
+                >Battles</a
+              >
+            </li>
+            <li>
+              <a href="/market"
+                ><svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.9"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                  focusable="false"
+                >
+                  <path d="M3.5 9.5 5 4.5h14l1.5 5" />
+                  <path d="M3.5 9.5h17v.5a2.8 2.8 0 0 1-5.6 0 2.8 2.8 0 0 1-5.8 0 2.8 2.8 0 0 1-5.6 0v-.5Z" />
+                  <path d="M5 12.8v6.7h14v-6.7" />
+                  <path d="M10 19.5v-4h4v4" /></svg
+                >Market</a
+              >
+            </li>
+            <li>
+              <a href="/market?tab=trade"
+                ><svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.9"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                  focusable="false"
+                >
+                  <path d="M7.5 4 4 7.5 7.5 11" />
+                  <path d="M4 7.5h12.5" />
+                  <path d="m16.5 13 3.5 3.5-3.5 3.5" />
+                  <path d="M20 16.5H7.5" /></svg
+                >Trade</a
+              >
+            </li>
+            <li>
+              <a href="/vault"
+                ><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
+                  <path
+                    d="M5 4.5h14a2 2 0 0 1 2 2V9H3V6.5a2 2 0 0 1 2-2Zm-2 6h18v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7Zm7 2.2a.8.8 0 0 0 0 1.6h4a.8.8 0 0 0 0-1.6h-4Z"
+                  /></svg
+                >Vault</a
+              >
+            </li>
+            <li>
+              <a href="/feed?tab=leaderboard"
+                ><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
+                  <path
+                    d="M7 3.5h10v1.6h3.2v2.1c0 2.4-1.7 4.3-4.1 4.6a5.1 5.1 0 0 1-3.2 2.9V17h2.6c.8 0 1.4.6 1.4 1.4v2H7.1v-2c0-.8.6-1.4 1.4-1.4h2.6v-2.4a5.1 5.1 0 0 1-3.2-2.9C5.5 11.4 3.8 9.6 3.8 7.2V5.1H7V3.5Z"
+                  /></svg
+                >Leaderboard</a
+              >
+            </li>
+            <li>
+              <a href="/rewards"
+                ><svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.9"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                  focusable="false"
+                >
+                  <rect x="3.5" y="8.5" width="17" height="4" rx="1" />
+                  <path
+                    d="M5 12.5V20h14v-7.5M12 8.5V20M12 8.5S11 4 8.5 4C7 4 6.5 5.2 6.8 6.2 7.3 8 12 8.5 12 8.5Zm0 0s1-4.5 3.5-4.5c1.5 0 2 1.2 1.7 2.2-.5 1.8-5.2 2.3-5.2 2.3Z"
+                  /></svg
+                >Rewards</a
+              >
+            </li>
+          </ul>
+        </nav>
+        <button class="menu-btn" type="button" aria-expanded="false" aria-controls="site-menu">
+          <span class="visually-hidden">Menu</span><span class="menu-lines" aria-hidden="true"><i></i><i></i></span>
+        </button>
         <a class="pill-link" href="/packs">Enter</a>
+        <nav class="site-menu" id="site-menu" aria-label="Godpack features">
+          <ul>
+            <li>
+              <a href="/packs"
+                ><span class="site-menu-icon"
+                  ><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
+                    <path
+                      d="M12 2.6 3.6 7.2v9.6L12 21.4l8.4-4.6V7.2L12 2.6Zm0 2.3 5.9 3.2L12 11.3 6.1 8.1 12 4.9ZM5.6 9.8l5.4 3v6.1l-5.4-3V9.8Zm7.4 9.1v-6.1l5.4-3v6.1l-5.4 3Z"
+                    /></svg></span
+                ><span class="site-menu-text"><b>Packs</b><span>Open packs and pull real cards</span></span></a
+              >
+            </li>
+            <li>
+              <a href="/battles"
+                ><span class="site-menu-icon"
+                  ><svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.9"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                    focusable="false"
+                  >
+                    <path d="M4 4l9.5 9.5M4 4v3.2M4 4h3.2M20 4l-9.5 9.5M20 4v3.2M20 4h-3.2" />
+                    <path d="M8.3 15.7 5 19M15.7 15.7 19 19M6.7 13.4l3.9 3.9M17.3 13.4l-3.9 3.9" /></svg></span
+                ><span class="site-menu-text"><b>Battles</b><span>Open head to head; the winner keeps every card</span></span></a
+              >
+            </li>
+            <li>
+              <a href="/market"
+                ><span class="site-menu-icon"
+                  ><svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.9"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                    focusable="false"
+                  >
+                    <path d="M3.5 9.5 5 4.5h14l1.5 5" />
+                    <path d="M3.5 9.5h17v.5a2.8 2.8 0 0 1-5.6 0 2.8 2.8 0 0 1-5.8 0 2.8 2.8 0 0 1-5.6 0v-.5Z" />
+                    <path d="M5 12.8v6.7h14v-6.7" />
+                    <path d="M10 19.5v-4h4v4" /></svg></span
+                ><span class="site-menu-text"><b>Market</b><span>Buy, sell and bid on cards</span></span></a
+              >
+            </li>
+            <li>
+              <a href="/market?tab=trade"
+                ><span class="site-menu-icon"
+                  ><svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.9"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                    focusable="false"
+                  >
+                    <path d="M7.5 4 4 7.5 7.5 11" />
+                    <path d="M4 7.5h12.5" />
+                    <path d="m16.5 13 3.5 3.5-3.5 3.5" />
+                    <path d="M20 16.5H7.5" /></svg></span
+                ><span class="site-menu-text"><b>Trade</b><span>Swap cards with other collectors</span></span></a
+              >
+            </li>
+            <li>
+              <a href="/vault"
+                ><span class="site-menu-icon"
+                  ><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
+                    <path
+                      d="M5 4.5h14a2 2 0 0 1 2 2V9H3V6.5a2 2 0 0 1 2-2Zm-2 6h18v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7Zm7 2.2a.8.8 0 0 0 0 1.6h4a.8.8 0 0 0 0-1.6h-4Z"
+                    /></svg></span
+                ><span class="site-menu-text"><b>Vault</b><span>Keep, sell or ship the cards you pull</span></span></a
+              >
+            </li>
+            <li>
+              <a href="/feed?tab=leaderboard"
+                ><span class="site-menu-icon"
+                  ><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
+                    <path
+                      d="M7 3.5h10v1.6h3.2v2.1c0 2.4-1.7 4.3-4.1 4.6a5.1 5.1 0 0 1-3.2 2.9V17h2.6c.8 0 1.4.6 1.4 1.4v2H7.1v-2c0-.8.6-1.4 1.4-1.4h2.6v-2.4a5.1 5.1 0 0 1-3.2-2.9C5.5 11.4 3.8 9.6 3.8 7.2V5.1H7V3.5Z"
+                    /></svg></span
+                ><span class="site-menu-text"><b>Leaderboard</b><span>The biggest pulls and top collectors</span></span></a
+              >
+            </li>
+            <li>
+              <a href="/rewards"
+                ><span class="site-menu-icon"
+                  ><svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.9"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    aria-hidden="true"
+                    focusable="false"
+                  >
+                    <rect x="3.5" y="8.5" width="17" height="4" rx="1" />
+                    <path
+                      d="M5 12.5V20h14v-7.5M12 8.5V20M12 8.5S11 4 8.5 4C7 4 6.5 5.2 6.8 6.2 7.3 8 12 8.5 12 8.5Zm0 0s1-4.5 3.5-4.5c1.5 0 2 1.2 1.7 2.2-.5 1.8-5.2 2.3-5.2 2.3Z"
+                    /></svg></span
+                ><span class="site-menu-text"><b>Rewards</b><span>Daily check-ins, free packs and VIP perks</span></span></a
+              >
+            </li>
+          </ul>
+        </nav>
       </header>
 
       <main class="hero">
-        <div class="carousel" role="img" aria-label="The four Godpack booster packs, turning one at a time. Tap a pack to try a demo open, or drag to spin.">
-          <div class="halo" aria-hidden="true"></div>
-          <div class="halo" aria-hidden="true"></div>
-          <div class="halo" aria-hidden="true"></div>
-          <div class="halo" aria-hidden="true"></div>
-          <img
-            class="booster"
-            src="assets/packs/arena-480.webp"
-            srcset="assets/packs/arena-240.webp 240w, assets/packs/arena-480.webp 480w, assets/packs/arena-720.webp 720w"
-            sizes="(min-width: 1200px) 460px, (min-width: 768px) 300px, 40vw"
-            alt="Godpack Arena pack"
-            width="1060"
-            height="1484"
-            draggable="false"
-            fetchpriority="high"
-          />
-          <img
-            class="booster"
-            src="assets/packs/master-480.webp"
-            srcset="assets/packs/master-240.webp 240w, assets/packs/master-480.webp 480w, assets/packs/master-720.webp 720w"
-            sizes="(min-width: 1200px) 460px, (min-width: 768px) 300px, 40vw"
-            alt="Godpack Master pack"
-            width="1060"
-            height="1484"
-            draggable="false"
-          />
-          <img
-            class="booster"
-            src="assets/packs/starter-480.webp"
-            srcset="assets/packs/starter-240.webp 240w, assets/packs/starter-480.webp 480w, assets/packs/starter-720.webp 720w"
-            sizes="(min-width: 1200px) 460px, (min-width: 768px) 300px, 40vw"
-            alt="Godpack Starter pack"
-            width="1060"
-            height="1484"
-            draggable="false"
-          />
-          <img
-            class="booster"
-            src="assets/packs/trainer-480.webp"
-            srcset="assets/packs/trainer-240.webp 240w, assets/packs/trainer-480.webp 480w, assets/packs/trainer-720.webp 720w"
-            sizes="(min-width: 1200px) 460px, (min-width: 768px) 300px, 40vw"
-            alt="Godpack Trainer pack"
-            width="1060"
-            height="1484"
-            draggable="false"
-          />
-          <div class="pulse" aria-hidden="true"><span></span><span></span></div>
+        <div class="stage">
+          <div
+            class="carousel"
+            role="img"
+            aria-label="Pokémon, Baseball and Basketball packs, turning one at a time. Tap a pack to try a demo open, or drag to spin."
+          >
+            <div class="halo" aria-hidden="true"></div>
+            <div class="halo" aria-hidden="true"></div>
+            <div class="halo" aria-hidden="true"></div>
+            <img
+              class="booster"
+              src="assets/packs/pokemon-480.webp"
+              srcset="assets/packs/pokemon-240.webp 240w, assets/packs/pokemon-480.webp 480w, assets/packs/pokemon-720.webp 720w"
+              sizes="(min-width: 1200px) 460px, (min-width: 768px) 300px, 40vw"
+              alt="Pokémon booster pack"
+              width="1060"
+              height="1484"
+              draggable="false"
+              fetchpriority="high"
+            />
+            <img
+              class="booster"
+              src="assets/packs/baseball-480.webp"
+              srcset="assets/packs/baseball-240.webp 240w, assets/packs/baseball-480.webp 480w, assets/packs/baseball-720.webp 720w"
+              sizes="(min-width: 1200px) 460px, (min-width: 768px) 300px, 40vw"
+              alt="Baseball hobby pack"
+              width="1060"
+              height="1484"
+              draggable="false"
+            />
+            <img
+              class="booster"
+              src="assets/packs/basketball-480.webp"
+              srcset="assets/packs/basketball-240.webp 240w, assets/packs/basketball-480.webp 480w, assets/packs/basketball-720.webp 720w"
+              sizes="(min-width: 1200px) 460px, (min-width: 768px) 300px, 40vw"
+              alt="Basketball hobby pack"
+              width="1060"
+              height="1484"
+              draggable="false"
+            />
+            <div class="pulse" aria-hidden="true"><span></span><span></span></div>
+          </div>
+          <div class="pack-tabs" role="group" aria-label="Packs">
+            <span class="pack-tabs-marker" aria-hidden="true"></span>
+            <button type="button" data-pack="0" data-kind="pokemon" aria-current="true">Pokémon</button>
+            <button type="button" data-pack="1" data-kind="baseball">Baseball</button>
+            <button type="button" data-pack="2" data-kind="basketball">Basketball</button>
+          </div>
         </div>
         <button class="demo-trigger" type="button">Try a demo open</button>
 

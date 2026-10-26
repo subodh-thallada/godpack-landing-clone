@@ -1,5 +1,5 @@
 // Renders the original artwork in tools/art/ to assets/.
-//   node tools/render-art.js [packs] [slabs] [extras]
+//   node tools/render-art.js [packs] [slabs] [extras]   (PACKS=a,b or SLABS=id,id to render only those)
 // Needs playwright and sharp (npm install in this folder: see package.json).
 const { chromium } = require('playwright');
 const sharp = require('sharp');
@@ -42,16 +42,20 @@ async function webp(buf, file, width) {
 
   if (all || want.has('slabs')) {
     const count = await page.evaluate(() => window.SLABS.length);
+    const only = process.env.SLABS ? process.env.SLABS.split(',') : null;
     fs.mkdirSync(path.join(ASSETS, 'slabs'), { recursive: true });
     for (let i = 0; i < count; i++) {
-      const buf = png(await page.evaluate((n) => window.exportSlab(n), i));
       const id = await page.evaluate((n) => window.SLABS[n].id, i);
+      if (only && !only.includes(id)) continue;
+      const buf = png(await page.evaluate((n) => window.exportSlab(n), i));
       await webp(buf, path.join(ASSETS, 'slabs', `${id}-400.webp`), 400);
       await webp(buf, path.join(ASSETS, 'slabs', `${id}-600.webp`), 600);
       console.log('slab', id);
     }
-    const back = png(await page.evaluate(() => window.exportSlabBack()));
-    await webp(back, path.join(ASSETS, 'slabs', 'slab-back-600.webp'), 600);
+    if (!only) {
+      const back = png(await page.evaluate(() => window.exportSlabBack()));
+      await webp(back, path.join(ASSETS, 'slabs', 'slab-back-600.webp'), 600);
+    }
   }
 
   if (all || want.has('extras')) {

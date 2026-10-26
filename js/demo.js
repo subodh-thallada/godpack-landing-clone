@@ -3,6 +3,9 @@
 //   PackDemo.preload(index) -> Promise   decode the art the ceremony needs
 //   PackDemo.open({ root, pack, from, enterHref, onClose })
 //
+// pack is the ring's index: 0 Pokémon, 1 Baseball, 2 Basketball. Each pack
+// tears open in its own foil colours and pulls from its own cards.
+//
 // The ceremony runs in four beats inside a full-screen layer:
 //   1. Sealed  — the pack flies in from its spot in the carousel. Drag across
 //                it (anywhere on screen) or press "Open pack" to tear the top.
@@ -16,12 +19,12 @@
 window.PackDemo = (() => {
   'use strict';
 
-  const PACKS = ['arena', 'master', 'starter', 'trainer'];
+  const PACKS = ['pokemon', 'baseball', 'basketball'];
+  const PACK_NAMES = ['Pokémon', 'Baseball', 'Basketball'];
   const PACK_TINT = [
-    ['#b98cff', '#7a2cf0', '#e9dcff'],
-    ['#7c6cff', '#ff8ee2', '#cfefff'],
-    ['#cbb8ff', '#9a83e6', '#ffffff'],
-    ['#e4e2ec', '#a39fb2', '#c59cff'],
+    ['#ffd23d', '#e69a00', '#fff4bf'],
+    ['#6b93ff', '#1d4ccc', '#ff4a4a'],
+    ['#ff8b3d', '#d8560c', '#ffd3ab'],
   ];
 
   const TIERS = {
@@ -31,8 +34,10 @@ window.PackDemo = (() => {
     grail: { rgb: [255, 186, 64], wash: 'rgba(255,194,75,0.55)', label: 'grail' },
   };
 
-  // Demo pulls: original cards from the ribbon, weighted toward the exciting tiers.
-  const POOL = [
+  // Demo pulls, weighted toward the exciting tiers. The Pokémon pack draws
+  // from the original cards in the ribbon; the sports packs from original
+  // "moment" cards (tools/art/sports.js).
+  const POKEMON = [
     { id: 'gilded-comet', name: 'Gilded Comet', value: 537.52, tier: 'grail' },
     { id: 'aurora-peaks', name: 'Aurora Peaks', value: 1248.0, tier: 'grail' },
     { id: 'volcanic-heart', name: 'Volcanic Heart', value: 412.0, tier: 'grail' },
@@ -47,6 +52,21 @@ window.PackDemo = (() => {
     { id: 'moonlit-grove', name: 'Moonlit Grove', value: 19.95, tier: 'core' },
     { id: 'ember-dunes', name: 'Ember Dunes', value: 14.3, tier: 'core' },
   ];
+  const BASEBALL = [
+    { id: 'grand-slam', name: 'Grand Slam', value: 842.0, tier: 'grail' },
+    { id: 'perfect-game', name: 'Perfect Game', value: 268.0, tier: 'chase' },
+    { id: 'curveball', name: 'Curveball', value: 64.5, tier: 'hit' },
+    { id: 'walk-off', name: 'Walk-Off', value: 48.2, tier: 'hit' },
+    { id: 'golden-hour', name: 'Golden Hour', value: 16.4, tier: 'core' },
+  ];
+  const BASKETBALL = [
+    { id: 'buzzer-beater', name: 'Buzzer Beater', value: 915.0, tier: 'grail' },
+    { id: 'glass-breaker', name: 'Glass Breaker', value: 244.0, tier: 'chase' },
+    { id: 'swish', name: 'Swish', value: 58.75, tier: 'hit' },
+    { id: 'center-court', name: 'Center Court', value: 39.9, tier: 'hit' },
+    { id: 'fast-break', name: 'Fast Break', value: 12.8, tier: 'core' },
+  ];
+  const POOLS = [POKEMON, BASEBALL, BASKETBALL];
   const TIER_ODDS = { grail: 0.3, chase: 0.25, hit: 0.25, core: 0.2 };
 
   const packSrc = (i) => `assets/packs/${PACKS[i]}-720.webp`;
@@ -95,7 +115,7 @@ window.PackDemo = (() => {
     );
   }
 
-  function pick() {
+  function pick(pack) {
     let r = Math.random(),
       tier = 'core';
     for (const [t, p] of Object.entries(TIER_ODDS)) {
@@ -104,7 +124,7 @@ window.PackDemo = (() => {
         break;
       }
     }
-    const cards = POOL.filter((c) => c.tier === tier);
+    const cards = POOLS[pack].filter((c) => c.tier === tier);
     return cards[Math.floor(Math.random() * cards.length)];
   }
 
@@ -559,7 +579,7 @@ window.PackDemo = (() => {
   class Ceremony {
     constructor(opts) {
       this.o = opts;
-      this.card = pick();
+      this.card = pick(opts.pack);
       this.tier = TIERS[this.card.tier];
       this.cleanups = [];
       this.closed = false;
@@ -579,7 +599,7 @@ window.PackDemo = (() => {
       const wrap = el('div', 'pd', {
         role: 'dialog',
         'aria-modal': 'true',
-        'aria-label': 'Demo pack opening',
+        'aria-label': `Demo ${PACK_NAMES[pack]} pack opening`,
         tabindex: '-1',
       });
       wrap.innerHTML = `
@@ -1127,7 +1147,7 @@ window.PackDemo = (() => {
     const i = clamp(index | 0, 0, PACKS.length - 1);
     return Promise.all([decode(packSrc(i)), decode(SLAB_BACK)]).then(() => {
       // Warm the card fronts in the background; nothing waits on them.
-      POOL.forEach((c) => decode(slabSrc(c.id)));
+      POOLS[i].forEach((c) => decode(slabSrc(c.id)));
     });
   }
 

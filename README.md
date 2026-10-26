@@ -34,25 +34,26 @@ npm run format:check  # verify only
 
 ## What's here
 
-| Path                  | What it does                                                                                                                           |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `index.html`          | Page markup: header, hero carousel, copy, card ribbon, FAQ, footer                                                                     |
-| `css/site.css`        | All styles. Mobile first; 768px tablet, 1200px desktop, 1536 / 1728px wider ribbon cards                                               |
-| `js/orbit.js`         | Pack carousel: a spring-driven turntable that turns every 2.6 s, supports drag and flick, shows a tap pulse, and opens the demo on tap |
-| `js/ribbon.js`        | Card ribbon: a seamless marquee that pauses on hover and supports mouse/touch drag with inertia, horizontal wheel and arrow keys       |
-| `js/footer.js`        | Desktop footer wordmark on a canvas: letters rise on first view, a foil light follows the cursor, sparkles rise from the slit          |
-| `js/demo.js`          | Pack-opening demo, loaded on first tap: tear the pack, token spin and tier recolour, slab reveal with streaks, arcs, burst and flip    |
-| `tools/art/`          | Generators for all the artwork (foil packs, graded slabs, logo, icons, link preview)                                                   |
-| `tools/render-art.js` | Renders the generators to `assets/` (`npm run art`)                                                                                    |
-| `tools/serve.js`      | Local server; applies the `vercel.json` redirects and rewrites                                                                         |
-| `app/`                | The app recreation (`app/index.html`, `app/css/`, `app/js/`, `app/assets/cards/`); see `app/README.md`                                 |
+| Path                  | What it does                                                                                                                                                                                                       |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `index.html`          | Page markup: header with the feature nav, hero carousel and pack names, copy, card ribbon, FAQ, footer                                                                                                             |
+| `css/site.css`        | All styles. Mobile first; 768px tablet, 1200px desktop, 1536 / 1728px wider ribbon cards                                                                                                                           |
+| `js/orbit.js`         | Pack carousel: a spring-driven turntable of the Pokémon, Baseball and Basketball packs that turns every 2.6 s, supports drag and flick, shows a tap pulse, lights the front pack's name, and opens the demo on tap |
+| `js/nav.js`           | Feature menu under 1200px (Packs, Battles, Market, Trade, Vault, Leaderboard, Rewards, each with a line about it); wider screens list them inline                                                                  |
+| `js/ribbon.js`        | Card ribbon: a seamless marquee that pauses on hover and supports mouse/touch drag with inertia, horizontal wheel and arrow keys                                                                                   |
+| `js/footer.js`        | Desktop footer wordmark on a canvas: letters rise on first view, a foil light follows the cursor, sparkles rise from the slit                                                                                      |
+| `js/demo.js`          | Pack-opening demo, loaded on first tap: tear the pack, token spin and tier recolour, slab reveal with streaks, arcs, burst and flip. Each pack opens in its own colours and pulls from its own cards               |
+| `tools/art/`          | Generators for all the artwork (foil packs, graded slabs, the baseball and basketball cards in `sports.js`, logo, icons, link preview)                                                                             |
+| `tools/render-art.js` | Renders the generators to `assets/` (`npm run art`)                                                                                                                                                                |
+| `tools/serve.js`      | Local server; applies the `vercel.json` redirects and rewrites                                                                                                                                                     |
+| `app/`                | The app recreation (`app/index.html`, `app/css/`, `app/js/`, `app/assets/cards/`); see `app/README.md`                                                                                                             |
 
 Every animation respects `prefers-reduced-motion`.
 
 ## What's original
 
 - **Code.** Everything is written from scratch. The original site's scripts and stylesheet were used only to observe layout values and timing.
-- **Artwork.** The booster packs, logo mark, card back and all 13 graded cards are generated procedurally by `tools/art/`. The cards show landscape art with invented names and set labels. There are no Pokémon characters, real card scans, grading-company logos or the Godpack logo.
+- **Artwork.** The booster packs, logo mark, card back and all 23 graded cards are generated procedurally by `tools/art/`. The 13 trading cards show landscape art with invented names and set labels; the 10 baseball and basketball cards show game moments (a grand slam, a buzzer beater) with no players, teams or leagues. The Pokémon pack names its category in plain type with an original lightning emblem. There are no Pokémon characters or logos, real card scans, grading-company logos or the Godpack logo.
 - **Font.** Hanken Grotesk, self-hosted under the SIL Open Font License (`assets/fonts/OFL.txt`).
 
 ## Swapping in your own assets
@@ -60,11 +61,11 @@ Every animation respects `prefers-reduced-motion`.
 Images are referenced by path, so licensed art can replace the generated files
 at the same sizes:
 
-- packs: `assets/packs/{arena,master,starter,trainer}-{240,480,720,1060}.webp` (1060 × 1484, transparent)
+- packs: `assets/packs/{pokemon,baseball,basketball}-{240,480,720,1060}.webp` on the landing page, `{arena,master,starter,trainer}` in the app (1060 × 1484, transparent)
 - ribbon cards: `assets/slabs/<id>-400.webp`; the demo uses `<id>-600.webp` (600 × 1005)
 - logo: `assets/logo.png` (447 × 159, drawn into a 149 × 53 box)
 
-To regenerate the art after editing a generator: `npm run art` (or `node tools/render-art.js packs|slabs|extras`).
+To regenerate the art after editing a generator: `npm run art` (or `node tools/render-art.js packs|slabs|extras`; `PACKS=pokemon` or `SLABS=grand-slam,swish` renders just those).
 
 ## Link preview video
 
