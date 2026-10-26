@@ -4,9 +4,10 @@ An iOS and Android app (Expo / React Native) that sits alongside the web
 recreation in this repo. It doesn't replace the website: the site keeps
 deploying to Vercel from the repo root, and this folder is ignored there.
 
-**Try it:** https://godpack-mobile-demo.vercel.app is the app's web build;
-open it on a phone (or a phone-sized window). On a real device it runs in
-Expo Go or a development build (see Run it).
+**Try it:** https://godpack-mobile-demo.vercel.app is the app's web build.
+On a phone it opens full screen; on a laptop, desktop or tablet it opens
+inside a phone at iPhone size, whatever the window size or zoom. On a real
+device it also runs in Expo Go or a development build (see Run it).
 
 It has every feature of the web app — packs, battles, the Market (buy, sell,
 auctions, offers and trades), the vault (sell and ship), the feed, chat,
@@ -49,7 +50,8 @@ live in one engine, `src/market/engine.js`, an exact copy of the web app's
   cash either way — with a meter showing how likely the collector is to say
   yes. They accept, decline or ask for a little cash; they also send you
   trade offers for your cards (often two for one), which you can accept,
-  decline or counter.
+  decline or counter. There's always at least one waiting, from the first
+  time you open the app.
 - **Activity:** everything that happened, with amounts, plus your open offers
   and alerts. Notifications link straight to the listing or trade.
 
@@ -100,6 +102,16 @@ The web build is its own Vercel project, `godpack-mobile-demo` (the website's
 project ignores this folder). `public/vercel.json` is copied into `dist/` on
 export: it sends every route to `index.html` and caches the hashed bundles.
 
+On anything that isn't a phone (a mouse or trackpad, or a screen 600px or
+more on its short side), `index.html` hands over to `public/phone.html`: a
+phone with a 390 x 764 screen, scaled to fit the window, running the app in
+an iframe. Inside it the app sees a phone-sized window, so everything that
+measures the screen (the tour, sheets, the onboarding) behaves as on a
+phone. The address bar follows the app, and the notes beside the phone have
+a QR code for opening it on a phone and a Start over button. Phones get the
+app full screen, and are asked to turn upright in landscape. `?frame=0`
+skips the phone.
+
 ```bash
 npm run deploy:web     # expo export --platform web, then vercel deploy dist --prod
 ```
@@ -114,6 +126,7 @@ npm run export:native   # iOS + Android bundles (Hermes), including the ceremony
 npm run export:web && node tools/serve-dist.js 4180
 BASE=http://localhost:4180 node e2e/app.e2e.js     # Playwright, iPhone-sized, screenshots in e2e/screenshots
 BASE=http://localhost:4180 node e2e/market.e2e.js  # every Market flow (fast-forwards the page clock)
+BASE=http://localhost:4180 node e2e/frame.e2e.js   # the phone frame at 13 window sizes and zooms, tablets, phones
 ```
 
 The end-to-end test needs Playwright (`npm i -D playwright` and

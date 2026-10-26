@@ -2,6 +2,20 @@
 <html lang="%LANG_ISO_CODE%">
   <head>
     <meta charset="utf-8" />
+    <!-- On a laptop, desktop or tablet the app opens inside a phone
+         (phone.html), so it always gets a phone-sized screen whatever the
+         window size or zoom. Phones get it full screen. -->
+    <script>
+      (function () {
+        try {
+          if (window.self !== window.top || /[?&]frame=0/.test(location.search)) return;
+          // A phone: touch only (no mouse or trackpad) and a phone-sized screen.
+          var touchOnly = matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches;
+          if (touchOnly && Math.min(screen.width, screen.height) < 600) return;
+          location.replace('/phone.html?to=' + encodeURIComponent(location.pathname + location.search + location.hash));
+        } catch (e) {}
+      })();
+    </script>
     <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
     <!-- Edge to edge under the notch (the app pads itself with safe-area
          insets); the keyboard resizes the layout on Android like it does on
@@ -13,6 +27,8 @@
     <meta name="color-scheme" content="dark" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Godpack" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <title>%WEB_TITLE%</title>
     <style id="expo-reset">
       html,
@@ -52,6 +68,39 @@
         -webkit-user-select: none;
         -webkit-touch-callout: none;
       }
+      /* A phone shows no scrollbars, so neither does the app on a laptop. */
+      * {
+        scrollbar-width: none;
+      }
+      *::-webkit-scrollbar {
+        display: none;
+      }
+      /* The app is portrait-only: a phone turned sideways gets asked to turn
+         it back rather than a squashed layout. */
+      .rotate {
+        display: none;
+      }
+      @media (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
+        .rotate {
+          position: fixed;
+          inset: 0;
+          z-index: 2147483647;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          background: #101014;
+          color: #f5f3ff;
+          font: 600 17px/1.4 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          text-align: center;
+        }
+        .rotate span {
+          color: #a6a2bc;
+          font-size: 14px;
+          font-weight: 400;
+        }
+      }
       /* iOS zooms into any field under 16px and never zooms back. */
       @media (pointer: coarse) {
         input,
@@ -66,5 +115,40 @@
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
+    <div class="rotate" role="alert">
+      <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#7954ed" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="7" y="2" width="10" height="20" rx="2.5" />
+        <path d="M11 18.5h2" />
+      </svg>
+      Turn your phone upright
+      <span>The app is made for portrait.</span>
+    </div>
+    <script>
+      // With a mouse, the wheel also scrolls rows that only scroll sideways
+      // (tabs, chips, card belts) while the pointer is over them; at either
+      // end the page scrolls as usual. Trackpads already scroll sideways.
+      addEventListener(
+        'wheel',
+        function (e) {
+          if (e.ctrlKey || e.shiftKey || Math.abs(e.deltaX) >= Math.abs(e.deltaY)) return;
+          var dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+          for (var el = e.target; el && el.nodeType === 1 && el !== document.body; el = el.parentElement) {
+            var cs = getComputedStyle(el);
+            var y = (cs.overflowY === 'auto' || cs.overflowY === 'scroll') && el.scrollHeight > el.clientHeight + 1;
+            if (y) return;
+            var x = (cs.overflowX === 'auto' || cs.overflowX === 'scroll') && el.scrollWidth > el.clientWidth + 1;
+            if (x) {
+              var max = el.scrollWidth - el.clientWidth;
+              if ((dy > 0 && el.scrollLeft < max - 1) || (dy < 0 && el.scrollLeft > 1)) {
+                el.scrollLeft += dy;
+                e.preventDefault();
+              }
+              return;
+            }
+          }
+        },
+        { passive: false },
+      );
+    </script>
   </body>
 </html>

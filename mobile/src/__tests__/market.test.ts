@@ -342,6 +342,9 @@ describe('trades', () => {
       .slice()
       .sort((a, b) => a.value - b.value);
 
+  // The trade you sent (collectors' offers to you sit alongside it).
+  const sent = (s: Account) => s.market!.trades.find((t) => t.dir === 'out')!;
+
   it('2-for-1: a generous trade is accepted and cards change hands', () => {
     const s = account(1000, [item('a', 50), item('b', 50, 'tidal-glass')]);
     const want = theirs(s)[0];
@@ -349,7 +352,7 @@ describe('trades', () => {
     expect(r.ok).toBe(true);
     expect(s.vault).toHaveLength(0); // held while they think
     market.tick(s, T0 + 11000, never);
-    const t = s.market!.trades[0];
+    const t = sent(s);
     expect(t.status).toBe('accepted');
     expect(s.vault.map((v) => v.id)).toEqual([want.id]);
     expect(market.inventory(s, 'mossrock').some((x) => x.uid === 'a')).toBe(true);
@@ -363,7 +366,7 @@ describe('trades', () => {
     s.vault.unshift(mine);
     market.proposeTrade(s, 'mossrock', { give: ['z'], get: [want.uid] }, T0, never);
     market.tick(s, T0 + 11000, never);
-    const t = s.market!.trades[0];
+    const t = sent(s);
     expect(t.status).toBe('countered');
     expect(t.counter!).toBeGreaterThan(0);
     const before = s.balance;
@@ -379,7 +382,7 @@ describe('trades', () => {
     market.proposeTrade(s, 'mossrock', { give: ['tiny'], get: [want.uid], cashGive: 0.5 }, T0, never);
     expect(s.balance).toBe(999.5);
     market.tick(s, T0 + 11000, never);
-    expect(s.market!.trades[0].status).toBe('declined');
+    expect(sent(s).status).toBe('declined');
     expect(s.balance).toBe(1000);
     expect(s.vault.some((v) => v.uid === 'tiny')).toBe(true);
   });
@@ -393,7 +396,7 @@ describe('trades', () => {
         .ok,
     ).toBe(true);
     market.tick(s, T0 + 11000, never);
-    expect(s.market!.trades.every((t) => t.status !== 'pending')).toBe(true);
+    expect(s.market!.trades.filter((t) => t.dir === 'out').every((t) => t.status !== 'pending')).toBe(true);
   });
 
   it('validates trades', () => {
@@ -436,6 +439,33 @@ describe('trades', () => {
     expect(market.respondTrade(s, t!.id, 'accept', T0 + 41 * 60000, never).ok).toBe(true);
     expect(s.vault.some((v) => v.uid === 'big')).toBe(false);
     expect(s.vault.length).toBe(t!.get.length);
+  });
+
+  it('a trade offer is waiting from the start, and there is always one', () => {
+    const s = account();
+    const waiting = () => s.market!.trades.filter((t) => t.dir === 'in' && t.status === 'pending');
+    expect(waiting()).toHaveLength(1);
+    const first = waiting()[0];
+    expect(s.vault.some((v) => v.uid === first.give[0].uid)).toBe(true);
+    // Answer it, and another collector asks on the next beat.
+    expect(market.respondTrade(s, first.id, 'decline', T0 + 1000, never).ok).toBe(true);
+    expect(waiting()).toHaveLength(0);
+    market.tick(s, T0 + 4000, never);
+    expect(waiting()).toHaveLength(1);
+    expect(waiting()[0].id).not.toBe(first.id);
+    // It lapses after six minutes, and a fresh one takes its place.
+    const second = waiting()[0];
+    market.tick(s, second.expires! + 1, never);
+    expect(waiting()).toHaveLength(1);
+    expect(waiting()[0].id).not.toBe(second.id);
+  });
+
+  it('collectors ask for small cards too, and for nothing when the Vault is empty', () => {
+    const small = account(1000, [item('dust', 0.2)]);
+    expect(small.market!.trades.find((t) => t.dir === 'in')!.give[0].uid).toBe('dust');
+    const none = account(1000, []);
+    expect(none.market!.trades).toHaveLength(0);
+    expect(market.tick(none, T0 + 4000, never)).toEqual([]);
   });
 
   it('rates a proposed trade before you send it', () => {

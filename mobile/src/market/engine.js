@@ -188,6 +188,8 @@ export function createMarket({ cards, users, packs, href }) {
       });
     }
     m.sales.sort((a, b) => b.at - a.at);
+    // A collector's trade offer is waiting from the start.
+    npcProposal(s, rand, now);
     return m;
   }
 
@@ -1057,7 +1059,9 @@ export function createMarket({ cards, users, packs, href }) {
   // or cards plus cash worth a bit more.
   function npcProposal(s, rand, now) {
     const m = s.market;
-    const mineSorted = s.vault.filter((v) => v.value >= 0.5).sort((a, b) => b.value - a.value);
+    // They ask for one of your better cards (any card, if none is worth 50c).
+    const worth = s.vault.filter((v) => v.value >= 0.5);
+    const mineSorted = (worth.length ? worth : s.vault.slice()).sort((a, b) => b.value - a.value);
     if (!mineSorted.length) return null;
     const target = pick(rand, mineSorted.slice(0, 5));
     const v = target.value;
@@ -1459,8 +1463,10 @@ export function createMarket({ cards, users, packs, href }) {
       }
     });
 
-    // Someone proposes a trade for one of your cards.
-    if (m.trades.filter((t) => t.dir === 'in' && t.status === 'pending').length < 2 && chance(0.45)) {
+    // Someone proposes a trade for one of your cards: there's always at
+    // least one waiting, and now and then a second.
+    const waiting = m.trades.filter((t) => t.dir === 'in' && t.status === 'pending').length;
+    if (!waiting || (waiting < 2 && chance(0.45))) {
       const t = npcProposal(s, rand, now);
       if (t)
         push(

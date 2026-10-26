@@ -8,6 +8,7 @@
 // drops into your Vault.
 // No payment anywhere. See docs/ONBOARDING.md for the research behind it.
 import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
@@ -120,6 +121,10 @@ export default function Onboarding() {
   const [hop, setHop] = useState(0);
   const [handle, setHandle] = useState(draft?.handle ?? '');
   const [sheetH, setSheetH] = useState(0);
+  // Each step's words and buttons, measured, so a short screen can make room.
+  const [sizes, setSizes] = useState<Record<string, { body?: number; foot?: number }>>({});
+  const measured = (key: string, part: 'body' | 'foot', h: number) =>
+    setSizes((m) => (m[key]?.[part] === h ? m : { ...m, [key]: { ...m[key], [part]: h } }));
   // Email sign-up: the address, the code we "sent", what's been typed.
   const [email, setEmail] = useState(draft?.email ?? '');
   const [code, setCode] = useState('');
@@ -250,7 +255,15 @@ export default function Onboarding() {
     notify: 'Want a ping when it ships, or when someone joins your battle?',
   };
 
-  const hero = heroBottom(pose, W, H, insets.top);
+  // How far the hero has to give way for this step to fit (0 on most
+  // screens). The tear keeps the sealed pack exactly where it was.
+  const stepKey = blocked ? 'young' : step;
+  const need = (key: string, p: Pose) => {
+    const m = sizes[key];
+    return m?.body == null ? 0 : Math.max(0, Math.ceil(heroBottom(p, W, H, insets.top) + PIP_ROW + m.body + (m.foot ?? 0) - H));
+  };
+  const squeeze = step === 'tear' ? need('seal', 'seal') : need(stepKey, pose);
+  const hero = heroBottom(pose, W, H, insets.top, squeeze);
   // On the sign-up step Pip sits on the sheet's top edge, if there's room.
   const onSheet = step === 'claim' && sheetH > 0;
   const sheetPip = H - sheetH - PIP_ROW + 8;
@@ -604,7 +617,7 @@ export default function Onboarding() {
 
   const enter = reduced ? fadeIn : dir > 0 ? enterFwd : enterBack;
   const exit = reduced ? fadeOut : dir > 0 ? exitFwd : exitBack;
-  const g = geometry('welcome', W, H, insets.top);
+  const g = geometry('welcome', W, H, insets.top, step === 'welcome' ? squeeze : 0);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }} testID="onboarding">
@@ -619,6 +632,7 @@ export default function Onboarding() {
         avatar={step === 'name' ? { handle: clean, color: draft?.color ?? AVATAR_COLORS[0] } : null}
         hidePack={step === 'tear' || blocked}
         dormant={dormant}
+        squeeze={squeeze}
       />
 
       {chrome ? (
@@ -636,10 +650,12 @@ export default function Onboarding() {
       {step !== 'claim' || blocked ? (
         <KeyboardAvoidingView behavior="padding" style={[StyleSheet.absoluteFill, { top: contentTop }]} pointerEvents="box-none">
           <Animated.View key={blocked ? 'young' : step} entering={enter} exiting={exit} style={{ flex: 1 }} testID={`ob-step-${blocked ? 'too-young' : step}`}>
-            <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
-              {body}
-            </ScrollView>
-            {footer ? <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>{footer}</View> : null}
+            <StepBody onHeight={(h) => measured(stepKey, 'body', h)}>{body}</StepBody>
+            {footer ? (
+              <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]} onLayout={(e) => measured(stepKey, 'foot', e.nativeEvent.layout.height)}>
+                {footer}
+              </View>
+            ) : null}
           </Animated.View>
         </KeyboardAvoidingView>
       ) : (
@@ -672,7 +688,7 @@ export default function Onboarding() {
         <TearOpen
           pack={setup.pack.art}
           card={{ id: myCard.id, name: myCard.name, value: welcome.value, tier: welcome.tier }}
-          from={geometry('seal', W, H, insets.top)}
+          from={geometry('seal', W, H, insets.top, squeeze)}
           onClaim={() => {
             claimed.current = true;
           }}
@@ -690,14 +706,51 @@ export default function Onboarding() {
   );
 }
 
-function Title({ children, sub, testID }: { children: ReactNode; sub?: string; testID?: string }) {
+// A step's words. If they're still taller than the room left on a very short
+// screen, they scroll, and a fade at the bottom says there's more.
+function StepBody({ children, onHeight }: { children: ReactNode; onHeight: (h: number) => void }) {
+  const [room, setRoom] = useState(0);
+  const [content, setContent] = useState(0);
+  const [atEnd, setAtEnd] = useState(false);
+  const more = room > 0 && content - room > 2 && !atEnd;
   return (
-    <View style={{ gap: 8 }}>
-      <Animated.Text entering={dropIn} style={type.title} accessibilityRole="header" testID={testID}>
+    <View style={{ flex: 1 }}>
+      <ScrollView
+        contentContainerStyle={styles.body}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        onLayout={(e) => setRoom(e.nativeEvent.layout.height)}
+        onContentSizeChange={(_, h) => {
+          setContent(h);
+          onHeight(h);
+        }}
+        onScroll={(e) => {
+          const { contentOffset, layoutMeasurement, contentSize } = e.nativeEvent;
+          setAtEnd(contentOffset.y + layoutMeasurement.height >= contentSize.height - 6);
+        }}
+        scrollEventThrottle={32}
+      >
+        {children}
+      </ScrollView>
+      {more ? (
+        <Animated.View entering={fadeIn} exiting={fadeOut} pointerEvents="none" style={styles.more} testID="ob-more">
+          <LinearGradient colors={['rgba(16,16,20,0)', colors.bg]} style={StyleSheet.absoluteFill} />
+        </Animated.View>
+      ) : null}
+    </View>
+  );
+}
+
+function Title({ children, sub, testID }: { children: ReactNode; sub?: string; testID?: string }) {
+  // A little tighter on very short screens, so the step fits.
+  const tight = useWindowDimensions().height < 640;
+  return (
+    <View style={{ gap: tight ? 6 : 8 }}>
+      <Animated.Text entering={dropIn} style={[type.title, tight && styles.titleTight]} accessibilityRole="header" testID={testID}>
         {children}
       </Animated.Text>
       {sub ? (
-        <Animated.Text entering={dropInLate} style={styles.sub}>
+        <Animated.Text entering={dropInLate} style={[styles.sub, tight && styles.subTight]}>
           {sub}
         </Animated.Text>
       ) : null}
@@ -815,6 +868,9 @@ const styles = StyleSheet.create({
   count: { color: colors.faint, fontSize: 13, fontWeight: '600', fontVariant: ['tabular-nums'], minWidth: 40, textAlign: 'right', paddingRight: 8 },
   body: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 20, gap: 18 },
   footer: { paddingHorizontal: 20, paddingTop: 8 },
+  more: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 28 },
+  titleTight: { fontSize: 26, lineHeight: 31, letterSpacing: -0.6 },
+  subTight: { fontSize: 15, lineHeight: 21 },
   sub: { color: colors.muted, fontSize: 16, lineHeight: 23, fontWeight: '500' },
   hint: { color: colors.muted, fontSize: 13, fontWeight: '500' },
   error: { color: colors.danger, fontSize: 14, fontWeight: '500', marginTop: -6 },

@@ -103,8 +103,9 @@ to `main` redeploys it. Pages send `X-Robots-Tag: noindex` so the recreation doe
 show up in search results next to the real site.
 
 The phone app's web build is a separate Vercel project, live at
-https://godpack-mobile-demo.vercel.app (best opened on a phone). It's
-deployed from `mobile/` with `npm run deploy:web`; see
+https://godpack-mobile-demo.vercel.app. On a phone it opens full screen; on a
+laptop it opens inside a phone at iPhone size. It's deployed from `mobile/`
+with `npm run deploy:web`; see
 [mobile/README.md](mobile/README.md).
 
 ## Note

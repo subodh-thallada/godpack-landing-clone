@@ -11,7 +11,7 @@ const path = require('path');
 const BASE = process.env.BASE || 'http://localhost:4180';
 const OUT = path.join(__dirname, 'screenshots');
 fs.mkdirSync(OUT, { recursive: true });
-for (const f of fs.readdirSync(OUT)) if (f.endsWith('.png') && !f.startsWith('market-')) fs.unlinkSync(path.join(OUT, f));
+for (const f of fs.readdirSync(OUT)) if (f.endsWith('.png') && !/^(market|frame)-/.test(f)) fs.unlinkSync(path.join(OUT, f));
 
 let fails = 0;
 let shot = 0;

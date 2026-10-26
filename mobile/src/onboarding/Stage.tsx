@@ -39,8 +39,10 @@ const HEAD = 52; // the back button and progress bar above every hero
 
 // Where the hero sits in each pose, from the screen size. `w`/`h` are the
 // pack's; `card` is where the pulled card goes; `bottom` is where step
-// content may start.
-export function geometry(pose: Pose, W: number, H: number, top: number) {
+// content may start. `squeeze` is how much higher `bottom` should be, on a
+// screen too short for the step's words and buttons: the pack shrinks and
+// rises to make room, down to a size that still reads as a pack.
+export function geometry(pose: Pose, W: number, H: number, top: number, squeeze = 0) {
   const short = H < 700;
   const packW = {
     welcome: Math.min(W * 0.36, 180),
@@ -96,12 +98,23 @@ export function geometry(pose: Pose, W: number, H: number, top: number) {
       break;
     }
   }
+  if (squeeze > 0 && (pose === 'welcome' || pose === 'seal' || pose === 'ask' || pose === 'spend')) {
+    const hero = pose === 'welcome' || pose === 'seal';
+    const ceiling = top + (pose === 'welcome' ? 20 : HEAD + 6);
+    const smallest = hero ? 124 : 72;
+    const h0 = w / PACK_RATIO;
+    const h1 = Math.max(Math.min(smallest, h0), Math.min(h0, bottom - squeeze - ceiling));
+    bottom = Math.max(bottom - squeeze, ceiling + h1);
+    w = h1 * PACK_RATIO;
+    cy = bottom - h1 / 2;
+  }
   const h = w / PACK_RATIO;
   return { cx, cy, w, h, x: cx - w / 2, y: cy - h / 2, bottom, card };
 }
 
 // Step content starts below the hero.
-export const heroBottom = (pose: Pose, W: number, H: number, top: number) => geometry(pose, W, H, top).bottom + (pose === 'welcome' ? 40 : 18);
+export const heroBottom = (pose: Pose, W: number, H: number, top: number, squeeze = 0) =>
+  geometry(pose, W, H, top, squeeze).bottom + (pose === 'welcome' ? 40 : 18);
 
 const ORBIT = ['gilded-comet', 'aurora-peaks', 'nebula-bloom', 'frost-halo', 'volcanic-heart', 'coral-drift'];
 const PACK_POSES: Pose[] = ['welcome', 'ask', 'spend', 'seal'];
@@ -118,16 +131,18 @@ type Props = {
   hidePack?: boolean;
   // While the intro plays the scene waits, then the pack and rings arrive.
   dormant?: boolean;
+  // Room the step's content needs on a short screen (see geometry).
+  squeeze?: number;
 };
 
-export const Stage = memo(function Stage({ pose, art, tint, charms, shield, card, owner, avatar, hidePack, dormant }: Props) {
+export const Stage = memo(function Stage({ pose, art, tint, charms, shield, card, owner, avatar, hidePack, dormant, squeeze = 0 }: Props) {
   const { width: W, height: H } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const reduced = useReducedMotion();
-  const g = geometry(pose, W, H, insets.top);
+  const g = geometry(pose, W, H, insets.top, squeeze);
   const packPose = PACK_POSES.includes(pose);
   const packVisible = packPose && !hidePack && !dormant;
-  const welcome = geometry('welcome', W, H, insets.top);
+  const welcome = geometry('welcome', W, H, insets.top, pose === 'welcome' ? squeeze : 0);
 
   // The pack's position and size follow the pose.
   const cx = useSharedValue(g.cx);

@@ -28,6 +28,9 @@ http
     }
     if (!fs.existsSync(file) || fs.statSync(file).isDirectory()) file = path.join(root, 'index.html');
     res.writeHead(200, { 'Content-Type': types[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-store' });
-    fs.createReadStream(file).pipe(res);
+    // A rebuild can remove the file mid-read: answer with an error, don't crash.
+    fs.createReadStream(file)
+      .on('error', () => res.destroy())
+      .pipe(res);
   })
   .listen(port, () => console.log(`Serving ${root} on http://localhost:${port}`));

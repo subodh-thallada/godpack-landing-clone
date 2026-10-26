@@ -67,7 +67,8 @@ Everything a logged-in collector can do works:
   you can cut the price or take a listing down. Trade with any collector
   (up to 4 cards a side, plus cash either way, so 2-for-1 or cards for
   cash); a meter shows how likely they are to say yes, they may counter, and
-  they send you trades of their own. Listed and offered cards and cash are
+  they send you trades of their own: there's always at least one waiting,
+  from the first visit. Listed and offered cards and cash are
   held until the deal ends; sellers pay a 5% fee. The engine is
   `js/market/engine.js`, shared with the phone app.
 - **Shipments** — each shipment moves Requested → Packed → Shipped →
