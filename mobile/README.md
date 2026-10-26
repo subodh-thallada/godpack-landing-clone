@@ -4,6 +4,10 @@ An iOS and Android app (Expo / React Native) that sits alongside the web
 recreation in this repo. It doesn't replace the website: the site keeps
 deploying to Vercel from the repo root, and this folder is ignored there.
 
+**Try it:** https://godpack-mobile-demo.vercel.app is the app's web build;
+open it on a phone (or a phone-sized window). On a real device it runs in
+Expo Go or a development build (see Run it).
+
 It has every feature of the web app — packs, battles, the Market (buy, sell,
 auctions, offers and trades), the vault (sell and ship), the feed, chat,
 rewards, wallet, profiles — plus a first-run onboarding and an in-app tour. Everything uses demo credit; no real money,
@@ -89,6 +93,16 @@ npx expo start          # press i (iOS simulator), a (Android) or w (web)
 
 On a phone, install Expo Go and scan the QR code. Sign in with Apple needs
 a development build (`npx expo run:ios`) rather than Expo Go.
+
+## Deploy the web build
+
+The web build is its own Vercel project, `godpack-mobile-demo` (the website's
+project ignores this folder). `public/vercel.json` is copied into `dist/` on
+export: it sends every route to `index.html` and caches the hashed bundles.
+
+```bash
+npm run deploy:web     # expo export --platform web, then vercel deploy dist --prod
+```
 
 ## Check it
 

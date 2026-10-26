@@ -88,7 +88,8 @@ Messages caches previews per URL, so test a changed preview with a fresh query s
 
 It's a static site with no build step. `.vercelignore` uploads only `index.html`,
 `css/`, `js/`, `assets/`, `app/` and `vercel.json`. `vercel.json` rewrites the app
-routes (`/packs`, `/battles`, `/vault`, `/feed`, `/feed/following`, `/rewards`,
+routes (`/packs`, `/battles`, `/market`, `/market/l/:id`, `/market/t/:id`,
+`/vault`, `/feed`, `/feed/following`, `/rewards`,
 `/ship`, `/add-funds`, `/withdraw`, `/profile`, `/slab/:id`) to
 `app/index.html`, redirects `/app` to `/packs`, and sets cache and security
 headers.
@@ -100,6 +101,11 @@ vercel deploy
 The live site is public at https://godpack-landing-clone.vercel.app, and every push
 to `main` redeploys it. Pages send `X-Robots-Tag: noindex` so the recreation doesn't
 show up in search results next to the real site.
+
+The phone app's web build is a separate Vercel project, live at
+https://godpack-mobile-demo.vercel.app (best opened on a phone). It's
+deployed from `mobile/` with `npm run deploy:web`; see
+[mobile/README.md](mobile/README.md).
 
 ## Note
 

@@ -52,6 +52,7 @@
     "typecheck": "tsc --noEmit",
     "test": "jest",
     "export:web": "expo export --platform web",
+    "deploy:web": "expo export --platform web && vercel deploy dist --prod --yes --project godpack-mobile-demo",
     "export:native": "expo export --platform ios --platform android",
     "doctor": "expo-doctor"
   },
