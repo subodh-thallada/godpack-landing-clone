@@ -83,6 +83,15 @@ async function ceremony(p, action, name) {
     await p.waitForTimeout(350);
   }
   await p.locator('.pd-chrome-actions[data-on="true"]').waitFor({ timeout: 10000 });
+  // The card that flew out of the pack must stay hidden over the slab even
+  // if the browser forgets its finished fade (as iOS Safari can).
+  const token = await p.evaluate(() => {
+    const t = document.querySelector('.pd-token');
+    t.getAnimations().forEach((a) => a.cancel());
+    const cs = getComputedStyle(t);
+    return cs.visibility === 'hidden' || cs.opacity === '0';
+  });
+  ok('the revealed card is not covered by the pack token', token);
   const value = (await p.locator('.pd-value').innerText()).trim();
   if (name) await snap(p, `${name}-revealed`);
   if (action) {

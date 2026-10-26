@@ -1008,13 +1008,16 @@ button.pd-cta.pd-cta--alt{border:1px solid #3a3849}
       const tr = this.tokenRect,
         sr = this.slabRect;
       // Token shrinks into the slab's card well while the slab fades up.
-      this.token.animate(
+      const fade = this.token.animate(
         [
           { transform: this.tokenAt(tr.x + tr.w / 2, tr.y + tr.h / 2, 1), opacity: 1 },
           { transform: this.tokenAt(tr.x + tr.w / 2, tr.y + tr.h / 2 + sr.h * 0.08, 0.94), opacity: 0 },
         ],
         { duration: reduced ? 1 : 360, easing: 'cubic-bezier(0.23, 1, 0.32, 1)', fill: 'forwards' },
       );
+      // Then it stays gone. iOS can drop a finished animation's held end
+      // state, which put the token back over the slab, so write it down.
+      fade.finished.then(() => this.hideToken()).catch(() => {});
       this.cardEl.style.visibility = 'visible';
       this.cardEl.animate(
         [
@@ -1053,8 +1056,14 @@ button.pd-cta.pd-cta--alt{border:1px solid #3a3849}
       this.on(this.stage, 'pointerup', go);
     }
 
+    hideToken() {
+      this.token.style.opacity = '0';
+      this.token.style.visibility = 'hidden';
+    }
+
     async revealCard() {
       this.phase = 'revealing';
+      this.hideToken();
       this.tapHint.style.opacity = '0';
       this.tilt.style.transition = 'transform 200ms ease-out';
       this.tilt.style.transform = 'none';
